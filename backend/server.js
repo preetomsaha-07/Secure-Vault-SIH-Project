@@ -24,6 +24,22 @@ const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return /^https?:\/\/localhost:\d+$/.test(origin);
+  }
+
+  return false;
+}
+
 const requiredProductionEnv = [
   "DB_HOST",
   "DB_PORT",
@@ -59,7 +75,7 @@ app.set("trust proxy", process.env.TRUST_PROXY === "true");
 app.use((req, res, next) => {
   const requestOrigin = req.headers.origin;
 
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+  if (requestOrigin && isAllowedOrigin(requestOrigin)) {
     res.setHeader("Access-Control-Allow-Origin", requestOrigin);
     res.setHeader("Vary", "Origin");
   }
@@ -71,7 +87,7 @@ app.use((req, res, next) => {
     return res.sendStatus(204);
   }
 
-  if (requestOrigin && !allowedOrigins.includes(requestOrigin)) {
+  if (requestOrigin && !isAllowedOrigin(requestOrigin)) {
     return res.status(403).json({
       success: false,
       message: "Origin is not allowed.",
