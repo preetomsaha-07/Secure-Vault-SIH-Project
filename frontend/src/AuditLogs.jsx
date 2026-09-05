@@ -18,7 +18,7 @@ function AuditLogs() {
         setError("");
 
         const token = localStorage.getItem(
-          "secureVaultToken"
+          "securevault_token"
         );
 
         const response = await fetch("/api/audit", {
@@ -28,6 +28,12 @@ function AuditLogs() {
         });
 
         const data = await response.json();
+
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            "Administrator access is required to view audit logs."
+          );
+        }
 
         if (!response.ok) {
           throw new Error(

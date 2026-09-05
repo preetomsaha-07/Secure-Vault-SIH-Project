@@ -560,6 +560,8 @@ function Dashboard({
             summary.totalAuditLogs ??
             summary.totalAuditLogsCount ??
             summary.total_audit_logs ??
+            summary.auditEvents ??
+            summary.total_audit_events ??
             0,
         });
 

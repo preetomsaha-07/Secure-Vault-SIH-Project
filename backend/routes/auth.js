@@ -1,45 +1,48 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { Pool } = require("pg");
 
 const authenticateToken = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
 const { createAuditLog } = require("../utils/auditLogger");
+const pool = require("../db/pool");
 
 const router = express.Router();
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
-
-// TEST
-router.get("/test", (req, res) => {
-  res.json({
-    success: true,
-    message: "Auth routes are loaded correctly!",
+if (process.env.NODE_ENV !== "production") {
+  router.get("/test", (req, res) => {
+    res.json({
+      success: true,
+      message: "Auth routes are loaded correctly!",
+    });
   });
-});
+}
 
 // REGISTER
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
+    const normalizedName = String(name || "").trim();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+
+    if (!normalizedName || !normalizedEmail || !password) {
       return res.status(400).json({
         success: false,
         message: "Name, email and password are required.",
       });
     }
 
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters long.",
+      });
+    }
+
     const existingUser = await pool.query(
       "SELECT id FROM users WHERE email = $1",
-      [email]
+      [normalizedEmail]
     );
 
     if (existingUser.rows.length > 0) {
@@ -56,7 +59,7 @@ router.post("/register", async (req, res) => {
        (name, email, password, role)
        VALUES ($1, $2, $3, $4)
        RETURNING id, name, email, role, status, created_at`,
-      [name, email, hashedPassword, role || "Clerk"]
+      [normalizedName, normalizedEmail, hashedPassword, "Clerk"]
     );
 
     res.status(201).json({
@@ -77,9 +80,10 @@ router.post("/register", async (req, res) => {
 // LOGIN
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const emailValue = String(req.body.email || "").trim().toLowerCase();
+    const { password } = req.body;
 
-    if (!email || !password) {
+    if (!emailValue || !password) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required.",
@@ -90,7 +94,7 @@ router.post("/login", async (req, res) => {
       `SELECT id, name, email, password, role, status
        FROM users
        WHERE email = $1`,
-      [email]
+      [emailValue]
     );
 
     if (result.rows.length === 0) {
@@ -140,15 +144,17 @@ router.post("/login", async (req, res) => {
       }
     );
 
-    // AUTOMATIC AUDIT LOG
-    console.log("LOGIN AUDIT: calling createAuditLog for", user.email);
-    await createAuditLog({
-      userId: user.id,
-      action: "LOGIN",
-      resourceType: "USER",
-      resourceId: user.id,
-      details: "Successful user login",
-    });
+    try {
+      await createAuditLog({
+        userId: user.id,
+        action: "LOGIN",
+        resourceType: "USER",
+        resourceId: user.id,
+        details: "Successful user login",
+      });
+    } catch (auditError) {
+      console.error("LOGIN AUDIT ERROR:", auditError.message);
+    }
 
     res.json({
       success: true,

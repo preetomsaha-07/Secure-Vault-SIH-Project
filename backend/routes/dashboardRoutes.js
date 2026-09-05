@@ -1,16 +1,8 @@
 const express = require("express");
-const { Pool } = require("pg");
 const authenticateToken = require("../middleware/authMiddleware");
+const pool = require("../db/pool");
 
 const router = express.Router();
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
 
 // ==========================================
 // DASHBOARD SUMMARY + RECENT ACTIVITY
@@ -24,6 +16,10 @@ router.get("/summary", authenticateToken, async (req, res) => {
 
     const documentsResult = await pool.query(
       "SELECT COUNT(*)::int AS total_documents FROM documents"
+    );
+
+    const usersResult = await pool.query(
+      "SELECT COUNT(*)::int AS total_users FROM users"
     );
 
     const auditResult = await pool.query(
@@ -54,7 +50,10 @@ router.get("/summary", authenticateToken, async (req, res) => {
         totalCases: casesResult.rows[0].total_cases,
         totalDocuments:
           documentsResult.rows[0].total_documents,
+        totalUsers: usersResult.rows[0].total_users,
         auditEvents:
+          auditResult.rows[0].total_audit_events,
+        totalAuditLogs:
           auditResult.rows[0].total_audit_events,
       },
 

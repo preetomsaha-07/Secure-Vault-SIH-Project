@@ -1,23 +1,20 @@
 const express = require("express");
-const { Pool } = require("pg");
 
 const authenticateToken = require("../middleware/authMiddleware");
+const authorizeRoles = require("../middleware/roleMiddleware");
+const pool = require("../db/pool");
 
 const router = express.Router();
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
 
 // ==========================================
 // GET AUDIT LOGS
 // ==========================================
 
-router.get("/", authenticateToken, async (req, res) => {
+router.get(
+  "/",
+  authenticateToken,
+  authorizeRoles("Administrator"),
+  async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT
@@ -51,6 +48,7 @@ router.get("/", authenticateToken, async (req, res) => {
       message: "Server error while fetching audit logs.",
     });
   }
-});
+  }
+);
 
 module.exports = router;

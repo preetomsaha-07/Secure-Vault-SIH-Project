@@ -3,7 +3,6 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
-const { Pool } = require("pg");
 
 const authenticateToken = require("../middleware/authMiddleware");
 const {
@@ -11,6 +10,7 @@ const {
 } = require("../middleware/permissionMiddleware");
 
 const { createAuditLog } = require("../utils/auditLogger");
+const pool = require("../db/pool");
 
 const router = express.Router();
 
@@ -19,14 +19,6 @@ const router = express.Router();
 | DATABASE
 |--------------------------------------------------------------------------
 */
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
 
 /*
 |--------------------------------------------------------------------------

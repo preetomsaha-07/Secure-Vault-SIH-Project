@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const { Pool } = require("pg");
 
 const authenticateToken = require("../middleware/authMiddleware");
 const {
@@ -8,14 +7,7 @@ const {
 } = require("../middleware/permissionMiddleware");
 
 const { createAuditLog } = require("../utils/auditLogger");
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
+const pool = require("../db/pool");
 
 // =====================================================
 // GET ALL CASES

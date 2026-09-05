@@ -1,20 +1,12 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const { Pool } = require("pg");
 
 const authenticateToken = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
 const { createAuditLog } = require("../utils/auditLogger");
+const pool = require("../db/pool");
 
 const router = express.Router();
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
 
 // ==========================================
 // GET ALL USERS
@@ -84,11 +76,21 @@ router.post(
         status,
       } = req.body;
 
-      if (!name || !email || !password) {
+      const normalizedName = String(name || "").trim();
+      const normalizedEmail = String(email || "").trim().toLowerCase();
+
+      if (!normalizedName || !normalizedEmail || !password) {
         return res.status(400).json({
           success: false,
           message:
             "Name, email and password are required.",
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 8 characters long.",
         });
       }
 
@@ -130,7 +132,7 @@ router.post(
       const existingUser =
         await pool.query(
           "SELECT id FROM users WHERE email = $1",
-          [email.trim()]
+          [normalizedEmail]
         );
 
       if (
@@ -168,8 +170,8 @@ router.post(
              status,
              created_at`,
           [
-            name.trim(),
-            email.trim(),
+            normalizedName,
+            normalizedEmail,
             hashedPassword,
             selectedRole,
             selectedStatus,
