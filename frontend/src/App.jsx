@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import AuditLogs from "./AuditLogs";
 import Users from "./Users";
 import AccessControl from "./AccessControl";
@@ -100,7 +101,8 @@ function App() {
 
   if (!token) {
     return (
-      <div className="login-page">
+      <>
+        <div className="login-page">
         <div className="login-background-shape login-shape-one"></div>
         <div className="login-background-shape login-shape-two"></div>
 
@@ -198,11 +200,14 @@ function App() {
           </div>
         </div>
       </div>
+        <SpeedInsights />
+      </>
     );
   }
 
   return (
-    <MainApplication
+    <>
+      <MainApplication
       token={token}
       currentUser={currentUser}
       activePage={activePage}
@@ -213,6 +218,8 @@ function App() {
         setDashboardRefreshKey((value) => value + 1)
       }
     />
+      <SpeedInsights />
+    </>
   );
 }
 
