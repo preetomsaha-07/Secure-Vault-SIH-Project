@@ -33,6 +33,14 @@ let auditLogsState: AuditRecord[] = [...MOCK_AUDIT_LOGS];
 let alertsState: SecurityAlert[] = [...MOCK_SECURITY_ALERTS];
 let isAuditTampered = false;
 
+let usersState: User[] = [...Object.values(MOCK_USERS)];
+let credentialsState: Record<string, string> = {
+  'admin@securevault.local': 'Password123!',
+  'inv.a@securevault.local': 'Password123!',
+  'inv.b@securevault.local': 'Password123!',
+  'auditor@securevault.local': 'Password123!',
+};
+
 // Mock dispatcher when real backend is offline or on Vercel
 function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
   let parsedBody = body;
@@ -44,7 +52,7 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
 
   const token = sessionStorage.getItem('securevault_token');
   const activePersonaKey = sessionStorage.getItem('securevault_active_persona') || 'admin';
-  const currentUser: User = MOCK_USERS[activePersonaKey] || MOCK_USERS['admin'];
+  const currentUser: User = MOCK_USERS[activePersonaKey] || usersState[0] || MOCK_USERS['admin'];
 
   const cleanEndpoint = endpoint.split('?')[0];
 
@@ -58,16 +66,79 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
   }
 
   if (cleanEndpoint === '/auth/login' && method === 'POST') {
-    const email = (parsedBody?.email || '').toLowerCase();
-    let matchedUser = currentUser;
-    if (email.includes('inv.a')) matchedUser = MOCK_USERS['inv_a'];
-    else if (email.includes('inv.b')) matchedUser = MOCK_USERS['inv_b'];
-    else if (email.includes('auditor')) matchedUser = MOCK_USERS['auditor'];
-    else if (email.includes('admin')) matchedUser = MOCK_USERS['admin'];
+    const email = (parsedBody?.email || '').toLowerCase().trim();
+    
+    // Check in usersState first!
+    const foundUser = usersState.find((u) => u.email.toLowerCase() === email);
+    let matchedUser = foundUser;
+
+    if (!matchedUser) {
+      if (email.includes('inv.a')) matchedUser = MOCK_USERS['inv_a'];
+      else if (email.includes('inv.b')) matchedUser = MOCK_USERS['inv_b'];
+      else if (email.includes('auditor')) matchedUser = MOCK_USERS['auditor'];
+      else if (email.includes('admin')) matchedUser = MOCK_USERS['admin'];
+      else {
+        // Create an ad-hoc demo user for this email!
+        matchedUser = {
+          id: 'user_' + Date.now(),
+          email,
+          fullName: email.split('@')[0].toUpperCase(),
+          badgeNumber: `SV-OFF-${Math.floor(100 + Math.random() * 900)}`,
+          role: 'INVESTIGATOR',
+          departmentId: 'dept_inv',
+          departmentName: 'Investigation Division',
+          departmentCode: 'INV',
+          mfaEnabled: true,
+        };
+        usersState.push(matchedUser);
+      }
+    }
 
     sessionStorage.setItem('securevault_token', 'demo-token-' + Date.now());
     sessionStorage.setItem('securevault_logged_in', 'true');
     return { token: 'demo-token-' + Date.now(), user: matchedUser } as unknown as T;
+  }
+
+  if (cleanEndpoint === '/auth/register' && method === 'POST') {
+    const fullName = parsedBody?.fullName || parsedBody?.name || 'Authorized Officer';
+    const email = (parsedBody?.email || '').toLowerCase().trim();
+    const deptId = parsedBody?.departmentId || 'dept_inv';
+    const dept = MOCK_DEPARTMENTS.find((d) => d.id === deptId) || MOCK_DEPARTMENTS[1];
+    const role = parsedBody?.role || 'INVESTIGATOR';
+    const badge = parsedBody?.badgeNumber || `SV-INV-${Math.floor(100 + Math.random() * 900)}`;
+    const pass = parsedBody?.password || 'Password123!';
+
+    const newUser: User = {
+      id: 'user_' + Date.now(),
+      email,
+      fullName,
+      badgeNumber: badge,
+      role: role as any,
+      departmentId: dept.id,
+      departmentName: dept.name,
+      departmentCode: dept.code,
+      mfaEnabled: true,
+    };
+
+    usersState.push(newUser);
+    credentialsState[email] = pass;
+
+    auditLogsState.unshift({
+      id: 'audit_' + Date.now(),
+      user_id: newUser.id,
+      user_name: newUser.fullName,
+      action: 'USER_REGISTERED',
+      details: `Officer ${fullName} self-registered with Badge ${badge} into ${dept.name}.`,
+      ip_address: '10.0.4.12',
+      timestamp: new Date().toISOString(),
+      previous_hash: auditLogsState[0]?.current_hash || '0000000000000000000000000000000000000000000000000000000000000000',
+      current_hash: 'c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9',
+    });
+
+    sessionStorage.setItem('securevault_token', 'demo-token-' + Date.now());
+    sessionStorage.setItem('securevault_logged_in', 'true');
+
+    return { token: 'demo-token-' + Date.now(), user: newUser, message: 'Registration successful.' } as unknown as T;
   }
 
   if (cleanEndpoint === '/auth/logout') {
@@ -96,7 +167,45 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
   }
 
   if (cleanEndpoint === '/system/users') {
-    return { users: Object.values(MOCK_USERS) } as unknown as T;
+    if (method === 'POST') {
+      const fullName = parsedBody?.fullName || 'New Officer';
+      const email = (parsedBody?.email || '').toLowerCase().trim();
+      const deptId = parsedBody?.departmentId || 'dept_inv';
+      const dept = MOCK_DEPARTMENTS.find((d) => d.id === deptId) || MOCK_DEPARTMENTS[1];
+      const role = parsedBody?.role || 'INVESTIGATOR';
+      const badge = parsedBody?.badgeNumber || `SV-INV-${Math.floor(100 + Math.random() * 900)}`;
+      const pass = parsedBody?.password || 'Password123!';
+
+      const newUser: User = {
+        id: 'user_' + Date.now(),
+        email,
+        fullName,
+        badgeNumber: badge,
+        role: role as any,
+        departmentId: dept.id,
+        departmentName: dept.name,
+        departmentCode: dept.code,
+        mfaEnabled: true,
+      };
+
+      usersState.push(newUser);
+      credentialsState[email] = pass;
+
+      auditLogsState.unshift({
+        id: 'audit_' + Date.now(),
+        user_id: currentUser.id,
+        user_name: currentUser.fullName,
+        action: 'USER_PROVISIONED',
+        details: `Chief Arthur Pendelton provisioned credentials for Officer ${fullName} (Badge ${badge}) with Clearance ${role}.`,
+        ip_address: '10.0.4.12',
+        timestamp: new Date().toISOString(),
+        previous_hash: auditLogsState[0]?.current_hash || '0000000000000000000000000000000000000000000000000000000000000000',
+        current_hash: '8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a',
+      });
+
+      return { user: newUser, message: 'Officer successfully provisioned.' } as unknown as T;
+    }
+    return { users: usersState } as unknown as T;
   }
 
   if (cleanEndpoint === '/system/notifications') {
