@@ -35,6 +35,13 @@ let isAuditTampered = false;
 
 // Mock dispatcher when real backend is offline or on Vercel
 function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
+  let parsedBody = body;
+  if (typeof body === 'string') {
+    try {
+      parsedBody = JSON.parse(body);
+    } catch {}
+  }
+
   const token = localStorage.getItem('securevault_token');
   const activePersonaKey = localStorage.getItem('securevault_active_persona') || 'admin';
   const currentUser: User = MOCK_USERS[activePersonaKey] || MOCK_USERS['admin'];
@@ -43,14 +50,15 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
 
   // 1. AUTH
   if (cleanEndpoint === '/auth/me') {
-    if (!token && !localStorage.getItem('securevault_logged_in')) {
-      return { user: currentUser } as unknown as T;
+    const isLoggedIn = localStorage.getItem('securevault_logged_in') === 'true' || !!token;
+    if (!isLoggedIn) {
+      return { user: null } as unknown as T;
     }
     return { user: currentUser } as unknown as T;
   }
 
   if (cleanEndpoint === '/auth/login' && method === 'POST') {
-    const email = body?.email || '';
+    const email = (parsedBody?.email || '').toLowerCase();
     let matchedUser = currentUser;
     if (email.includes('inv.a')) matchedUser = MOCK_USERS['inv_a'];
     else if (email.includes('inv.b')) matchedUser = MOCK_USERS['inv_b'];
@@ -141,12 +149,12 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       const newCase = {
         id: 'case_' + Date.now(),
         case_number: `CASE-2026-${Math.floor(100 + Math.random() * 900)}`,
-        title: body?.title || 'New Investigation Case',
-        description: body?.description || '',
-        department_id: body?.department_id || 'dept_inv',
+        title: parsedBody?.title || 'New Investigation Case',
+        description: parsedBody?.description || '',
+        department_id: parsedBody?.department_id || 'dept_inv',
         department_name: 'Investigation Division',
         department_code: 'INV',
-        sensitivity_level: body?.sensitivity_level || 'CONFIDENTIAL',
+        sensitivity_level: parsedBody?.sensitivity_level || 'CONFIDENTIAL',
         status: 'ACTIVE' as const,
         creator_name: currentUser.fullName,
         member_count: 1,
@@ -165,7 +173,7 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
     const caseId = parts[2];
 
     if (parts[3] === 'assign' && method === 'POST') {
-      const targetUserId = body?.userId;
+      const targetUserId = parsedBody?.userId;
       const targetUser = Object.values(MOCK_USERS).find((u) => u.id === targetUserId);
       if (targetUser) {
         if (!MOCK_CASE_MEMBERS[caseId]) MOCK_CASE_MEMBERS[caseId] = [];
@@ -177,7 +185,7 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
           email: targetUser.email,
           badge_number: targetUser.badgeNumber,
           role: targetUser.role,
-          role_in_case: body?.roleInCase || 'INVESTIGATOR',
+          role_in_case: parsedBody?.roleInCase || 'INVESTIGATOR',
           assigned_at: new Date().toISOString(),
         });
       }
@@ -211,8 +219,8 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
   if (cleanEndpoint === '/docs/upload' && method === 'POST') {
     const newDoc: DocumentRecord = {
       id: 'doc_' + Date.now(),
-      title: (body instanceof FormData ? (body.get('title') as string) : body?.title) || 'Uploaded Investigation Evidence',
-      original_filename: (body instanceof FormData ? (body.get('file') as any)?.name : body?.filename) || 'Evidence_File.pdf',
+      title: (body instanceof FormData ? (body.get('title') as string) : parsedBody?.title) || 'Uploaded Investigation Evidence',
+      original_filename: (body instanceof FormData ? (body.get('file') as any)?.name : parsedBody?.filename) || 'Evidence_File.pdf',
       mime_type: 'application/pdf',
       file_size: 1536000,
       sha256_hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
@@ -324,15 +332,15 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       const newEv: EvidenceRecord = {
         id: 'ev_' + Date.now(),
         evidence_number: `EV-104-${String.fromCharCode(65 + evidenceState.length)}`,
-        title: body?.title || 'Physical Seizure Item',
-        description: body?.description || '',
-        case_id: body?.case_id || 'case_104',
+        title: parsedBody?.title || 'Physical Seizure Item',
+        description: parsedBody?.description || '',
+        case_id: parsedBody?.case_id || 'case_104',
         case_number: 'CASE-2026-104',
         current_custodian_id: currentUser.id,
         custodian_name: currentUser.fullName,
         badge_number: currentUser.badgeNumber,
         status: 'IN_CUSTODY',
-        storage_location: body?.storage_location || 'Secure Armory Box 104',
+        storage_location: parsedBody?.storage_location || 'Secure Armory Box 104',
         integrity_hash: '9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e',
         collected_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
@@ -356,9 +364,9 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
         evidence_id: evId,
         case_id: ev.case_id,
         previous_custodian: ev.custodian_name || 'Previous Custodian',
-        new_custodian: body?.newCustodian || 'Forensic Lab Analyst',
-        action: body?.action || 'TRANSFER_OF_CUSTODY',
-        reason: body?.reason || 'Court submission preparation',
+        new_custodian: parsedBody?.newCustodian || 'Forensic Lab Analyst',
+        action: parsedBody?.action || 'TRANSFER_OF_CUSTODY',
+        reason: parsedBody?.reason || 'Court submission preparation',
         timestamp: new Date().toISOString(),
         performed_by_id: currentUser.id,
         performed_by_name: currentUser.fullName,
@@ -372,7 +380,7 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       // Update current custodian
       const evIdx = evidenceState.findIndex((e) => e.id === evId);
       if (evIdx >= 0) {
-        evidenceState[evIdx].custodian_name = body?.newCustodian || 'Transferee';
+        evidenceState[evIdx].custodian_name = parsedBody?.newCustodian || 'Transferee';
       }
       return { success: true, event: newEvent } as unknown as T;
     }
