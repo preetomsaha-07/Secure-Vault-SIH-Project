@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Network, Filter, ZoomIn, ZoomOut, RotateCcw, Lock, Info, X } from 'lucide-react';
 import { api } from '../api/client';
 import { GraphData, Case } from '../types';
+import { MOCK_GRAPH_DATA } from '../api/mockData';
 
 export const GraphPage: React.FC = () => {
-  const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [graphData, setGraphData] = useState<GraphData>(MOCK_GRAPH_DATA);
   const [cases, setCases] = useState<Case[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string>('');
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
@@ -35,9 +36,15 @@ export const GraphPage: React.FC = () => {
     try {
       const endpoint = selectedCaseId ? `/graph/investigation/${selectedCaseId}` : '/graph/investigation';
       const res = await api.get<GraphData>(endpoint);
-      setGraphData(res);
+      if (res && Array.isArray(res.nodes) && res.nodes.length > 0) {
+        setGraphData(res);
+      } else {
+        setGraphData(MOCK_GRAPH_DATA);
+      }
       setSelectedNode(null);
-    } catch {}
+    } catch {
+      setGraphData(MOCK_GRAPH_DATA);
+    }
   };
 
   // Node color mapper
@@ -65,7 +72,16 @@ export const GraphPage: React.FC = () => {
   // Render Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !graphData || graphData.nodes.length === 0) return;
+    if (!canvas || !graphData || !Array.isArray(graphData.nodes) || graphData.nodes.length === 0) return;
+
+    // Adjust canvas dimensions to parent container
+    if (canvas.parentElement) {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      if (rect.width > 0 && (canvas.width !== Math.floor(rect.width) || canvas.height !== 560)) {
+        canvas.width = Math.floor(rect.width);
+        canvas.height = 560;
+      }
+    }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -73,6 +89,31 @@ export const GraphPage: React.FC = () => {
     const width = canvas.width;
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
+
+    // Subtle tactical background grid
+    ctx.save();
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
+    ctx.lineWidth = 1;
+    const gridSize = 40;
+    for (let x = 0; x < width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.save();
+    // Apply zoom
+    ctx.translate(width / 2, height / 2);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-width / 2, -height / 2);
 
     // Position nodes radially or circularly around center
     const centerX = width / 2;
@@ -84,7 +125,7 @@ export const GraphPage: React.FC = () => {
     let angleStep = (2 * Math.PI) / Math.max(1, totalNodes - 1);
     let angleIndex = 0;
 
-    graphData.nodes.forEach((node, i) => {
+    graphData.nodes.forEach((node) => {
       let x = centerX;
       let y = centerY;
 
@@ -105,11 +146,11 @@ export const GraphPage: React.FC = () => {
     // Draw Edges
     ctx.save();
     ctx.lineWidth = 1.5;
-    graphData.edges.forEach((edge) => {
+    (graphData.edges || []).forEach((edge) => {
       const source = nodeCoords.get(edge.source);
       const target = nodeCoords.get(edge.target);
       if (source && target) {
-        ctx.strokeStyle = 'rgba(71, 85, 105, 0.45)';
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.55)';
         ctx.beginPath();
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
@@ -133,7 +174,7 @@ export const GraphPage: React.FC = () => {
       // Glow if selected
       if (isSelected) {
         ctx.shadowColor = color;
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 18;
       } else {
         ctx.shadowBlur = 0;
       }
@@ -160,21 +201,30 @@ export const GraphPage: React.FC = () => {
       ctx.font = '8px JetBrains Mono, monospace';
       ctx.fillText(node.type, x, y + 3);
     });
+
+    ctx.restore();
   }, [graphData, selectedNode, zoom]);
 
   // Handle canvas click to select node
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas || !graphData) return;
+    if (!canvas || !graphData || !Array.isArray(graphData.nodes)) return;
 
     const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const rawX = (e.clientX - rect.left) * scaleX;
+    const rawY = (e.clientY - rect.top) * scaleY;
 
     const width = canvas.width;
     const height = canvas.height;
     const centerX = width / 2;
     const centerY = height / 2;
+
+    const clickX = (rawX - centerX) / zoom + centerX;
+    const clickY = (rawY - centerY) / zoom + centerY;
+
     const totalNodes = graphData.nodes.length;
     let angleStep = (2 * Math.PI) / Math.max(1, totalNodes - 1);
     let angleIndex = 0;
@@ -193,7 +243,7 @@ export const GraphPage: React.FC = () => {
       }
 
       const dist = Math.hypot(clickX - x, clickY - y);
-      if (dist <= radius + 6) {
+      if (dist <= radius + 8) {
         setSelectedNode(node);
         return;
       }
@@ -216,21 +266,28 @@ export const GraphPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Case Selector */}
-        <div className="flex items-center space-x-2">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
-            value={selectedCaseId}
-            onChange={(e) => setSelectedCaseId(e.target.value)}
-            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
-          >
-            <option value="">All Authorized Cases</option>
-            {cases.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.case_number} - {c.title}
-              </option>
-            ))}
-          </select>
+        {/* Case Selector & Metrics */}
+        <div className="flex items-center flex-wrap gap-2.5">
+          <div className="text-[11px] font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-800/40 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 shadow-sm">
+            <Network className="w-3.5 h-3.5 text-cyan-400" />
+            <span>{graphData?.nodes?.length || 0} Entities • {graphData?.edges?.length || 0} Links</span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <select
+              value={selectedCaseId}
+              onChange={(e) => setSelectedCaseId(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+            >
+              <option value="">All Authorized Cases</option>
+              {cases.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.case_number} - {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -244,6 +301,7 @@ export const GraphPage: React.FC = () => {
           { label: 'PERSON', color: 'bg-amber-500' },
           { label: 'VEHICLE', color: 'bg-purple-500' },
           { label: 'LOCATION', color: 'bg-rose-500' },
+          { label: 'ORGANIZATION', color: 'bg-teal-500' },
         ].map((item) => (
           <div key={item.label} className="flex items-center space-x-1.5">
             <span className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
@@ -253,14 +311,45 @@ export const GraphPage: React.FC = () => {
       </div>
 
       {/* Canvas & Inspector Container */}
-      <div className="relative bg-[#0a0f1d] border border-slate-800 rounded-2xl overflow-hidden shadow-2xl min-h-[550px] flex">
+      <div className="relative bg-[#0a0f1d] border border-slate-800 rounded-2xl overflow-hidden shadow-2xl min-h-[560px] flex">
         <canvas
           ref={canvasRef}
           width={850}
-          height={550}
+          height={560}
           onClick={handleCanvasClick}
           className="w-full h-full cursor-crosshair"
         />
+
+        {/* Floating Zoom Controls */}
+        <div className="absolute left-4 bottom-4 flex items-center space-x-1.5 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-lg p-1.5 z-10 shadow-lg font-mono text-xs">
+          <button
+            onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.15).toFixed(2))))}
+            className="p-1.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded transition"
+            title="Zoom Out"
+            type="button"
+          >
+            <ZoomOut className="w-4 h-4" />
+          </button>
+          <span className="px-2 text-[11px] text-cyan-400 font-bold min-w-[48px] text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            onClick={() => setZoom((z) => Math.min(2.5, Number((z + 0.15).toFixed(2))))}
+            className="p-1.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded transition"
+            title="Zoom In"
+            type="button"
+          >
+            <ZoomIn className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setZoom(1)}
+            className="p-1.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded transition"
+            title="Reset Zoom"
+            type="button"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* Node Inspector Drawer */}
         {selectedNode && (

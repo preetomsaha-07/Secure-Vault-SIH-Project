@@ -530,7 +530,74 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
   }
 
   // 7. GRAPH
-  if (cleanEndpoint === '/graph') {
+  if (cleanEndpoint === '/graph' || cleanEndpoint.startsWith('/graph')) {
+    const caseId = cleanEndpoint.replace('/graph/investigation/', '').replace('/graph/investigation', '').replace('/graph/', '').replace('/graph', '').trim();
+    if (!caseId || caseId === 'case_104') {
+      return MOCK_GRAPH_DATA as unknown as T;
+    }
+    const matchedCase = MOCK_CASES.find((c) => c.id === caseId);
+    if (matchedCase) {
+      const caseDocs = docsState.filter((d) => d.case_id === caseId);
+      const caseEv = evidenceState.filter((e) => e.case_id === caseId);
+      const nodes: any[] = [
+        {
+          id: matchedCase.id,
+          label: `${matchedCase.case_number} (${matchedCase.title})`,
+          type: 'CASE',
+          sensitivity: matchedCase.sensitivity_level,
+          details: {
+            title: matchedCase.title,
+            leadInvestigator: matchedCase.creator_name,
+            status: matchedCase.status,
+            department: matchedCase.department_name,
+          },
+        },
+        ...caseDocs.map((d) => ({
+          id: d.id,
+          label: d.title,
+          type: 'DOCUMENT',
+          sensitivity: d.sensitivity_level,
+          details: {
+            title: d.title,
+            category: d.category,
+            hash: d.sha256_hash,
+            classification: d.ai_classification,
+          },
+        })),
+        ...caseEv.map((e) => ({
+          id: e.id,
+          label: `${e.title} (${e.evidence_number})`,
+          type: 'EVIDENCE',
+          sensitivity: e.sensitivity_level,
+          details: {
+            title: e.title,
+            custodyOfficer: e.custody_officer_name,
+            status: e.status,
+            storageLocation: e.storage_location,
+          },
+        })),
+      ];
+      const edges: any[] = [
+        ...caseDocs.map((d, i) => ({
+          id: `e_doc_${i}`,
+          source: matchedCase.id,
+          target: d.id,
+          label: 'CONTAINS',
+        })),
+        ...caseEv.map((e, i) => ({
+          id: `e_ev_${i}`,
+          source: matchedCase.id,
+          target: e.id,
+          label: 'HAS_EVIDENCE',
+        })),
+      ];
+      return {
+        caseId: matchedCase.id,
+        nodes,
+        edges,
+        stats: { totalNodes: nodes.length, totalEdges: edges.length, casesCount: 1 },
+      } as unknown as T;
+    }
     return MOCK_GRAPH_DATA as unknown as T;
   }
 
