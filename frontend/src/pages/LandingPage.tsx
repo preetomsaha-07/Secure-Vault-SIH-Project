@@ -12,6 +12,9 @@ import {
   ArrowRight,
   Sparkles,
   Fingerprint,
+  Cloud,
+  Database,
+  Scale,
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -89,49 +92,141 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
         </div>
       </section>
 
-      {/* Problem & Solution */}
-      <section className="py-20 px-6 md:px-12 bg-slate-950/70 border-y border-slate-800/80">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <div className="text-xs font-mono text-rose-400 uppercase tracking-widest font-bold flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4" />
-              <span>The Threat Landscape</span>
+      {/* Problem Statement & Architectural Alignment */}
+      <section className="py-20 px-6 md:px-12 bg-slate-950/90 border-y border-slate-800/80">
+        <div className="max-w-6xl mx-auto space-y-12">
+          {/* Problem Statement Callout Banner */}
+          <div className="p-8 rounded-3xl bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-slate-900 border border-cyan-500/40 shadow-2xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyan-500/20 pb-4 mb-4">
+              <div className="flex items-center space-x-2 text-cyan-400 font-mono text-xs font-bold uppercase tracking-wider">
+                <Scale className="w-4 h-4" />
+                <span>Smart India Hackathon (SIH) • Official Problem Statement</span>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-bold self-start md:self-auto">
+                DOMAIN: LEGAL & FORENSIC CYBERSECURITY
+              </span>
             </div>
-            <h2 className="text-3xl font-bold text-white">Traditional Document Systems Fail Under Legal & Forensic Scrutiny</h2>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              Standard cloud storage platforms lack verifiable chain of custody, store plaintext records susceptible to insider tampering, suffer from broken object-level authorization (BOLA/IDOR), and leave no cryptographic proof of who accessed or modified court evidence.
-            </p>
-            <div className="space-y-3 font-mono text-xs text-slate-400">
-              <div className="flex items-center space-x-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                <span>Vulnerable to post-incident repudiation in judicial proceedings</span>
+
+            <div className="space-y-3">
+              <h2 className="text-xl md:text-2xl font-extrabold text-white leading-snug">
+                &ldquo;Poor auditability and compliance tracking. As the volume of legal and investigation-related data continues to grow, there is an increasing need for a secure, centralized, and intelligent document management system that ensures data integrity, accessibility, confidentiality, and efficient case management. Modern technologies such as Cloud Computing, Artificial Intelligence (AI), Blockchain, Digital Signatures, and Secure Access Control can significantly improve the management and security of legal and investigative documents.&rdquo;
+              </h2>
+              <p className="text-xs text-slate-400 font-mono">
+                SECUREVAULT is purposefully architected as the reference implementation addressing every dimension of this mandate.
+              </p>
+            </div>
+          </div>
+
+          {/* 5-Pillar Modern Technology Matrix */}
+          <div>
+            <div className="text-center mb-8">
+              <div className="text-xs font-mono text-cyan-400 uppercase tracking-widest font-bold">Technology Convergence</div>
+              <h3 className="text-2xl font-extrabold text-white mt-1">The 5 Core Technological Pillars of SecureVault</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="p-5 rounded-2xl bg-[#0e1629] border border-slate-800 space-y-3">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                  <Cloud className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">1. Cloud Computing</h4>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Centralized, secure private object storage repository with departmental compartmentalization (Cyber Crime, EOW, Prosecution) and scalable serverless APIs.
+                </p>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                <span>No automated verification of file bitrot or malicious modification</span>
+
+              <div className="p-5 rounded-2xl bg-[#0e1629] border border-slate-800 space-y-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">2. Artificial Intelligence (AI)</h4>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Privacy-preserving local OCR (Tesseract.js), automated 10-category document classification, forensic entity extraction (vehicle plates, IPC sections), and NLP smart search.
+                </p>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                <span>Leaking confidential case materials across unassigned investigators</span>
+
+              <div className="p-5 rounded-2xl bg-[#0e1629] border border-slate-800 space-y-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <Database className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">3. Blockchain Ledger</h4>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Genesis-anchored SHA-256 hash-chained immutable audit ledger solving poor auditability. Instant mathematical non-repudiation and court-admissible audit logs.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#0e1629] border border-slate-800 space-y-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Fingerprint className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">4. Digital Signatures</h4>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  PKI RSA-PSS 2048-bit asymmetric cryptographic signatures over document digests. Zero-leakage public QR verification for judicial officers without exposing classified text.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#0e1629] border border-slate-800 space-y-3">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">5. Secure Access Control</h4>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Multi-layered ABAC (Role + Department + Case + Sensitivity Level), 2FA OTP verification, and mandatory Administrator commission clearance approval for new officers.
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="p-8 rounded-2xl bg-gradient-to-b from-[#0e1629] to-[#0a0f1d] border border-cyan-500/30 shadow-2xl space-y-6">
-            <div className="text-xs font-mono text-cyan-400 uppercase tracking-widest font-bold flex items-center space-x-2">
-              <ShieldCheck className="w-4 h-4" />
-              <span>The SecureVault Architecture</span>
+          {/* 4 Fundamental Problem Requirements Solved */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center pt-6">
+            <div className="space-y-6">
+              <div className="text-xs font-mono text-rose-400 uppercase tracking-widest font-bold flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4" />
+                <span>The Core Deficiencies Solved</span>
+              </div>
+              <h2 className="text-2xl font-bold text-white">Why Conventional File Systems Fail Legal & Police Scrutiny</h2>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Ordinary cloud drives and email portals lack cryptographic chains of custody, store unencrypted files vulnerable to rogue insiders, suffer from broken object authorization (BOLA/IDOR), and leave no verifiable mathematical proof for courtroom prosecution.
+              </p>
+              <div className="space-y-2.5 font-mono text-xs text-slate-400">
+                <div className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                  <span>Poor auditability & non-verifiable logs easily contested in court</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                  <span>Silent bitrot or deliberate record modification undetected</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                  <span>Accidental cross-department leakage of confidential investigation files</span>
+                </div>
+              </div>
             </div>
-            <h3 className="text-2xl font-bold text-white">Zero-Trust Evidence Lifecycle</h3>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              Every document uploaded to SecureVault undergoes mandatory file validation, magic-byte inspection, SHA-256 fingerprinting, envelope AES-256-GCM encryption, and immutable hash-chained audit logging before ever reaching disk or object storage.
-            </p>
-            <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 font-mono text-xs space-y-2 text-cyan-300">
-              <div>✅ AES-256-GCM Authenticated Encryption</div>
-              <div>✅ Cryptographic Genesis-Anchored Audit Hash Chain</div>
-              <div>✅ Multi-Layered ABAC (Role + Dept + Case + Sensitivity)</div>
-              <div>✅ Non-Destructive Dynamic Security Watermarking</div>
-              <div>✅ Asymmetric RSA-PSS Digital Evidence Signatures</div>
+
+            <div className="p-6 rounded-2xl bg-gradient-to-b from-[#0e1629] to-[#0a0f1d] border border-cyan-500/30 shadow-2xl space-y-4">
+              <div className="text-xs font-mono text-cyan-400 uppercase tracking-widest font-bold flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4" />
+                <span>The 4 Core Guarantees of SecureVault</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
+                  <div className="text-cyan-400 font-bold font-mono">1. Data Integrity</div>
+                  <div className="text-slate-300 text-[11px]">AES-256-GCM auth tags + SHA-256 fingerprinting + tamper lab.</div>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
+                  <div className="text-blue-400 font-bold font-mono">2. Accessibility & Cases</div>
+                  <div className="text-slate-300 text-[11px]">Centralized case dossiers, evidence custody, & entity graphs.</div>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
+                  <div className="text-amber-400 font-bold font-mono">3. Compliance & Audits</div>
+                  <div className="text-slate-300 text-[11px]">Immutable Genesis-anchored blockchain-style audit ledger.</div>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
+                  <div className="text-emerald-400 font-bold font-mono">4. Confidentiality</div>
+                  <div className="text-slate-300 text-[11px]">Fine-grained ABAC + dynamic watermarking + 2FA security.</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
