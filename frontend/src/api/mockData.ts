@@ -24,6 +24,7 @@ export const MOCK_USERS: Record<string, User> = {
     departmentName: 'Central Cyber Crime Investigation Cell (C3IC)',
     departmentCode: 'C3IC',
     mfaEnabled: true,
+    status: 'ACTIVE',
   },
   inv_a: {
     id: 'user_inv_a',
@@ -35,6 +36,7 @@ export const MOCK_USERS: Record<string, User> = {
     departmentName: 'Special Anti-Cartel & Digital Forensics Wing',
     departmentCode: 'SDFW',
     mfaEnabled: true,
+    status: 'ACTIVE',
   },
   inv_b: {
     id: 'user_inv_b',
@@ -46,6 +48,7 @@ export const MOCK_USERS: Record<string, User> = {
     departmentName: 'Economic Offences Wing & Financial Forensics',
     departmentCode: 'EOW',
     mfaEnabled: false,
+    status: 'ACTIVE',
   },
   auditor: {
     id: 'user_auditor',
@@ -57,6 +60,19 @@ export const MOCK_USERS: Record<string, User> = {
     departmentName: 'Directorate of Prosecution & Judicial Liaison',
     departmentCode: 'DPJL',
     mfaEnabled: true,
+    status: 'ACTIVE',
+  },
+  pending_officer: {
+    id: 'user_pending_812',
+    email: 'a.mishra@cybercell.gov.in',
+    fullName: 'Sub-Inspector Alok Mishra',
+    badgeNumber: 'SV-INV-812',
+    role: 'INVESTIGATOR',
+    departmentId: 'dept_inv',
+    departmentName: 'Special Anti-Cartel & Digital Forensics Wing',
+    departmentCode: 'SDFW',
+    mfaEnabled: true,
+    status: 'PENDING_APPROVAL',
   },
 };
 

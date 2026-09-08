@@ -13,6 +13,8 @@ import {
   ArrowLeft,
   ShieldCheck,
   Fingerprint,
+  ShieldAlert,
+  Clock,
 } from 'lucide-react';
 import { useAuth, DEMO_PERSONAS, PersonaType } from '../context/AuthContext';
 import { api } from '../api/client';
@@ -25,7 +27,7 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onBackToLanding }) => {
   const { login, isLoading } = useAuth();
-  const [viewState, setViewState] = useState<'credentials' | 'otp'>('credentials');
+  const [viewState, setViewState] = useState<'credentials' | 'otp' | 'pending_approval'>('credentials');
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
   // Sign In State
@@ -51,6 +53,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onBackToLanding
     password: string;
     isRegistration: boolean;
     registrationData?: any;
+  } | null>(null);
+  const [registeredOfficer, setRegisteredOfficer] = useState<{
+    fullName?: string;
+    badgeNumber?: string;
+    role?: string;
+    email?: string;
+    departmentName?: string;
   } | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -222,7 +231,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onBackToLanding
 
     try {
       if (otpTargetOfficer.isRegistration && otpTargetOfficer.registrationData) {
-        await api.post('/auth/register', otpTargetOfficer.registrationData);
+        const res: any = await api.post('/auth/register', otpTargetOfficer.registrationData);
+        if (res?.pendingApproval) {
+          setRegisteredOfficer(res.user || otpTargetOfficer.registrationData);
+          setViewState('pending_approval');
+          return;
+        }
       }
       await login(otpTargetOfficer.email, otpTargetOfficer.password);
       onSuccess();
@@ -627,6 +641,72 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onBackToLanding
               </button>
             </div>
           </form>
+        )}
+
+        {/* VIEW 3: REGISTRATION PENDING ADMINISTRATOR APPROVAL */}
+        {viewState === 'pending_approval' && (
+          <div className="bg-[#0e1629] border border-amber-500/40 rounded-2xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/10">
+                <Clock className="w-7 h-7 animate-pulse" />
+              </div>
+              <h2 className="text-base font-bold text-white uppercase tracking-wider">
+                Registration Awaiting Clearance
+              </h2>
+              <p className="text-[11px] text-slate-400 font-mono">
+                Mandatory Administrative Review Protocol
+              </p>
+            </div>
+
+            {/* Officer Details Summary */}
+            <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2 font-mono text-xs">
+              <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400 text-[10px]">OFFICER NAME:</span>
+                <span className="text-white font-bold">{registeredOfficer?.fullName || 'Registered Officer'}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400 text-[10px]">BADGE ID:</span>
+                <span className="text-cyan-400 font-bold">{registeredOfficer?.badgeNumber}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400 text-[10px]">ASSIGNED ROLE:</span>
+                <span className="text-amber-300 font-bold">{registeredOfficer?.role}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 text-[10px]">CLEARANCE STATUS:</span>
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold">
+                  PENDING APPROVAL
+                </span>
+              </div>
+            </div>
+
+            {/* Security Alert Notice */}
+            <div className="p-3.5 bg-amber-950/20 border border-amber-800/40 rounded-xl space-y-2 text-xs text-amber-300">
+              <div className="flex items-center space-x-2 font-bold text-amber-400 text-[11px] uppercase tracking-wider">
+                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                <span>Credentials Locked Until Clearance</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-300 font-sans">
+                Under Government & Police digital governance regulations, your credentials and system access remain locked. An Administrator (<span className="text-white font-medium">Dr. Vikramaditya Sen, IPS</span>) must review and approve your officer commission from the Governance Roster before you can log in.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewState('credentials');
+                  setActiveTab('login');
+                  setError(null);
+                }}
+                className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-cyan-500/20 flex items-center justify-center space-x-2 transition"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Return to Officer Sign In</span>
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Back to Public Landing Page Link */}

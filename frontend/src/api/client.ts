@@ -39,6 +39,7 @@ let credentialsState: Record<string, string> = {
   'inv.a@securevault.local': 'Password123!',
   'inv.b@securevault.local': 'Password123!',
   'auditor@securevault.local': 'Password123!',
+  'a.mishra@cybercell.gov.in': 'Password123!',
 };
 
 // Mock dispatcher when real backend is offline or on Vercel
@@ -88,6 +89,21 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       );
     }
 
+    // Check if account is pending administrator approval!
+    if (foundUser.status === 'PENDING_APPROVAL') {
+      throw new ApiError(
+        403,
+        'Account Pending Commission: Your officer profile is awaiting Administrator (Dr. Vikramaditya Sen, IPS) clearance approval. Sign-in is locked until approved.'
+      );
+    }
+
+    if (foundUser.status === 'REJECTED') {
+      throw new ApiError(
+        403,
+        'Clearance Denied: Your officer registration was rejected by the Administrator.'
+      );
+    }
+
     const expectedPassword = credentialsState[email] || 'Password123!';
     if (pass !== expectedPassword) {
       auditLogsState.unshift({
@@ -130,6 +146,21 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       );
     }
 
+    // Check if account is pending administrator approval!
+    if (foundUser.status === 'PENDING_APPROVAL') {
+      throw new ApiError(
+        403,
+        'Account Pending Commission: Your officer profile is awaiting Administrator (Dr. Vikramaditya Sen, IPS) clearance approval. Sign-in is locked until approved.'
+      );
+    }
+
+    if (foundUser.status === 'REJECTED') {
+      throw new ApiError(
+        403,
+        'Clearance Denied: Your officer registration was rejected by the Administrator.'
+      );
+    }
+
     const expectedPassword = credentialsState[email] || 'Password123!';
     if (pass !== expectedPassword) {
       throw new ApiError(401, 'Invalid security password. Access denied.');
@@ -149,6 +180,10 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
     const badge = parsedBody?.badgeNumber || `SV-INV-${Math.floor(100 + Math.random() * 900)}`;
     const pass = parsedBody?.password || 'Password123!';
 
+    if (usersState.some((u) => u.email.toLowerCase() === email)) {
+      throw new ApiError(400, 'An officer with this email address is already registered in the system.');
+    }
+
     const newUser: User = {
       id: 'user_' + Date.now(),
       email,
@@ -159,6 +194,7 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       departmentName: dept.name,
       departmentCode: dept.code,
       mfaEnabled: true,
+      status: 'PENDING_APPROVAL', // New registrations require Administrator clearance!
     };
 
     usersState.push(newUser);
@@ -168,18 +204,20 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       id: 'audit_' + Date.now(),
       user_id: newUser.id,
       user_name: newUser.fullName,
-      action: 'USER_REGISTERED',
-      details: `Officer ${fullName} self-registered with Badge ${badge} into ${dept.name}.`,
-      ip_address: '10.0.4.12',
+      action: 'OFFICER_REGISTRATION_SUBMITTED',
+      details: `Officer ${fullName} (Badge ${badge}) self-registered for ${dept.name}. Status: PENDING ADMINISTRATOR CLEARANCE.`,
+      ip_address: '10.14.8.55',
       timestamp: new Date().toISOString(),
       previous_hash: auditLogsState[0]?.current_hash || '0000000000000000000000000000000000000000000000000000000000000000',
       current_hash: 'c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9',
     });
 
-    sessionStorage.setItem('securevault_token', 'demo-token-' + Date.now());
-    sessionStorage.setItem('securevault_logged_in', 'true');
-
-    return { token: 'demo-token-' + Date.now(), user: newUser, message: 'Registration successful.' } as unknown as T;
+    // DO NOT log in! Return pending approval flag!
+    return {
+      pendingApproval: true,
+      user: newUser,
+      message: 'Officer registration submitted. Your commission is pending Administrator approval.',
+    } as unknown as T;
   }
 
   if (cleanEndpoint === '/auth/logout') {
@@ -227,6 +265,7 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
         departmentName: dept.name,
         departmentCode: dept.code,
         mfaEnabled: true,
+        status: 'ACTIVE',
       };
 
       usersState.push(newUser);
@@ -247,6 +286,56 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       return { user: newUser, message: 'Officer successfully provisioned.' } as unknown as T;
     }
     return { users: usersState } as unknown as T;
+  }
+
+  if (cleanEndpoint.startsWith('/system/users/') && cleanEndpoint.endsWith('/approve') && method === 'POST') {
+    const userId = cleanEndpoint.split('/')[3];
+    const userIndex = usersState.findIndex((u) => u.id === userId);
+    if (userIndex === -1) {
+      throw new ApiError(404, 'Officer not found in official registry.');
+    }
+    const targetUser = usersState[userIndex];
+    targetUser.status = 'ACTIVE';
+    usersState[userIndex] = { ...targetUser };
+
+    auditLogsState.unshift({
+      id: 'audit_' + Date.now(),
+      user_id: currentUser.id,
+      user_name: currentUser.fullName,
+      action: 'OFFICER_COMMISSION_APPROVED',
+      details: `Administrator ${currentUser.fullName} approved official commission and activated credentials for Officer ${targetUser.fullName} (Badge: ${targetUser.badgeNumber}, Division: ${targetUser.departmentName || targetUser.departmentCode}). Account is now ACTIVE.`,
+      ip_address: '10.0.4.12',
+      timestamp: new Date().toISOString(),
+      previous_hash: auditLogsState[0]?.current_hash || '0000000000000000000000000000000000000000000000000000000000000000',
+      current_hash: '7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b',
+    });
+
+    return { success: true, user: targetUser, message: `Official commission approved for ${targetUser.fullName}. Officer can now sign in.` } as unknown as T;
+  }
+
+  if (cleanEndpoint.startsWith('/system/users/') && cleanEndpoint.endsWith('/reject') && method === 'POST') {
+    const userId = cleanEndpoint.split('/')[3];
+    const userIndex = usersState.findIndex((u) => u.id === userId);
+    if (userIndex === -1) {
+      throw new ApiError(404, 'Officer not found in official registry.');
+    }
+    const targetUser = usersState[userIndex];
+    targetUser.status = 'REJECTED';
+    usersState[userIndex] = { ...targetUser };
+
+    auditLogsState.unshift({
+      id: 'audit_' + Date.now(),
+      user_id: currentUser.id,
+      user_name: currentUser.fullName,
+      action: 'OFFICER_COMMISSION_REJECTED',
+      details: `Administrator ${currentUser.fullName} REJECTED official commission for Officer ${targetUser.fullName} (Badge: ${targetUser.badgeNumber}). Credentials remain locked.`,
+      ip_address: '10.0.4.12',
+      timestamp: new Date().toISOString(),
+      previous_hash: auditLogsState[0]?.current_hash || '0000000000000000000000000000000000000000000000000000000000000000',
+      current_hash: '6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a',
+    });
+
+    return { success: true, user: targetUser, message: `Commission rejected for ${targetUser.fullName}.` } as unknown as T;
   }
 
   if (cleanEndpoint === '/system/notifications') {

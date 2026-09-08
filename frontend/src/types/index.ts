@@ -10,6 +10,7 @@ export interface User {
   departmentName?: string;
   departmentCode?: string;
   mfaEnabled?: boolean;
+  status?: 'ACTIVE' | 'PENDING_APPROVAL' | 'REJECTED';
 }
 
 export interface Department {

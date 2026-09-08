@@ -12,6 +12,10 @@ import {
   BadgeCheck,
   CheckCircle,
   AlertCircle,
+  Clock,
+  Check,
+  Ban,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { User, Department, UserRole } from '../types';
@@ -20,6 +24,8 @@ export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [stats, setStats] = useState<any | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [toastNotification, setToastNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -51,6 +57,49 @@ export const UsersPage: React.FC = () => {
         setDepartmentId(dRes.departments[0].id);
       }
     } catch {}
+  };
+
+  const handleApproveOfficer = async (userId: string, officerName: string) => {
+    setActionLoading(userId);
+    setToastNotification(null);
+    try {
+      await api.post<{ success: boolean; user: User; message: string }>(`/system/users/${userId}/approve`, {});
+      setToastNotification({
+        type: 'success',
+        message: `Clearance Commission Approved: Officer ${officerName} credentials activated successfully.`,
+      });
+      await loadData();
+    } catch (err: any) {
+      setToastNotification({
+        type: 'error',
+        message: err.message || 'Failed to approve officer clearance.',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectOfficer = async (userId: string, officerName: string) => {
+    if (!window.confirm(`Are you sure you want to reject official clearance for ${officerName}?`)) {
+      return;
+    }
+    setActionLoading(userId);
+    setToastNotification(null);
+    try {
+      await api.post<{ success: boolean; user: User; message: string }>(`/system/users/${userId}/reject`, {});
+      setToastNotification({
+        type: 'error',
+        message: `Clearance Denied: Registration for Officer ${officerName} has been rejected.`,
+      });
+      await loadData();
+    } catch (err: any) {
+      setToastNotification({
+        type: 'error',
+        message: err.message || 'Failed to reject officer clearance.',
+      });
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleOpenModal = () => {
@@ -116,12 +165,67 @@ export const UsersPage: React.FC = () => {
         </button>
       </div>
 
+      {/* Toast Notification */}
+      {toastNotification && (
+        <div
+          className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-mono transition animate-in fade-in ${
+            toastNotification.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+          }`}
+        >
+          <div className="flex items-center space-x-2">
+            {toastNotification.type === 'success' ? (
+              <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            )}
+            <span>{toastNotification.message}</span>
+          </div>
+          <button
+            onClick={() => setToastNotification(null)}
+            className="text-slate-400 hover:text-white text-xs px-2 py-0.5 rounded"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Pending Clearance Alert Banner */}
+      {users.filter((u) => u.status === 'PENDING_APPROVAL').length > 0 && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-300 shadow-lg shadow-amber-500/5 animate-in fade-in">
+          <div className="flex items-start sm:items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0 text-amber-400">
+              <Clock className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="font-bold text-white flex items-center space-x-2">
+                <span>
+                  {users.filter((u) => u.status === 'PENDING_APPROVAL').length} Officer Registration(s) Awaiting Clearance Approval
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-300 text-[10px] font-mono font-bold">
+                  ACTION REQUIRED
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 font-sans mt-0.5">
+                New officers cannot generate credentials or log in until an Administrator (Dr. Vikramaditya Sen, IPS) reviews and approves their commission below.
+              </p>
+            </div>
+          </div>
+          <div className="text-[11px] font-mono text-amber-400 font-semibold bg-amber-950/40 px-3 py-1.5 rounded-lg border border-amber-800/40 self-start sm:self-auto">
+            Clearance Protocol Active
+          </div>
+        </div>
+      )}
+
       {/* Overview Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 rounded-xl bg-[#0e1629] border border-slate-800 space-y-1">
           <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Authorized Officers</span>
           <div className="text-2xl font-extrabold text-white">{users.length}</div>
-          <div className="text-[10px] text-emerald-400 font-mono">100% Active Directory Linked</div>
+          <div className="text-[10px] text-emerald-400 font-mono">
+            {users.filter((u) => u.status === 'ACTIVE').length} Active Commissioned
+          </div>
         </div>
 
         <div className="p-4 rounded-xl bg-[#0e1629] border border-slate-800 space-y-1">
@@ -131,11 +235,11 @@ export const UsersPage: React.FC = () => {
         </div>
 
         <div className="p-4 rounded-xl bg-[#0e1629] border border-slate-800 space-y-1">
-          <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Encrypted Storage</span>
-          <div className="text-2xl font-extrabold text-blue-400">
-            {((stats?.stats?.storageBytesUsed || 0) / 1024).toFixed(1)} KB
+          <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Pending Clearance</span>
+          <div className="text-2xl font-extrabold text-amber-400">
+            {users.filter((u) => u.status === 'PENDING_APPROVAL').length}
           </div>
-          <div className="text-[10px] text-slate-400 font-mono">Private Object Store</div>
+          <div className="text-[10px] text-amber-400/80 font-mono">Awaiting Administrator Review</div>
         </div>
       </div>
 
@@ -153,7 +257,8 @@ export const UsersPage: React.FC = () => {
                 <th className="py-2.5 px-4 font-semibold">Badge ID</th>
                 <th className="py-2.5 px-4 font-semibold">Assigned Division</th>
                 <th className="py-2.5 px-4 font-semibold">Role Clearance</th>
-                <th className="py-2.5 px-4 font-semibold">Status</th>
+                <th className="py-2.5 px-4 font-semibold">Clearance Status</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Commission Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -179,10 +284,60 @@ export const UsersPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 flex items-center space-x-1 w-fit">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span>ACTIVE</span>
-                    </span>
+                    {u.status === 'PENDING_APPROVAL' ? (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/60 text-amber-400 border border-amber-800/60 flex items-center space-x-1 w-fit">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span>PENDING CLEARANCE</span>
+                      </span>
+                    ) : u.status === 'REJECTED' ? (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950/60 text-rose-400 border border-rose-800/60 flex items-center space-x-1 w-fit">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                        <span>REJECTED</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 flex items-center space-x-1 w-fit">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>ACTIVE</span>
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    {u.status === 'PENDING_APPROVAL' ? (
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => handleApproveOfficer(u.id, u.fullName)}
+                          disabled={actionLoading === u.id}
+                          className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 hover:text-white rounded-lg font-mono text-[10px] font-bold flex items-center space-x-1 transition shadow-sm"
+                          title="Approve officer commission and activate login credentials"
+                        >
+                          <Check className="w-3 h-3 text-emerald-400" />
+                          <span>{actionLoading === u.id ? 'Approving...' : 'Approve Clearance'}</span>
+                        </button>
+                        <button
+                          onClick={() => handleRejectOfficer(u.id, u.fullName)}
+                          disabled={actionLoading === u.id}
+                          className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-400 text-rose-400 hover:text-rose-200 rounded-lg font-mono text-[10px] font-medium flex items-center space-x-1 transition"
+                          title="Reject officer registration"
+                        >
+                          <Ban className="w-3 h-3 text-rose-400" />
+                          <span>Reject</span>
+                        </button>
+                      </div>
+                    ) : u.status === 'REJECTED' ? (
+                      <button
+                        onClick={() => handleApproveOfficer(u.id, u.fullName)}
+                        disabled={actionLoading === u.id}
+                        className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-lg font-mono text-[10px] font-bold flex items-center space-x-1 transition"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Re-Authorize</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center justify-end space-x-1 text-slate-500 font-mono text-[10px]">
+                        <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-slate-400">Commissioned</span>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
