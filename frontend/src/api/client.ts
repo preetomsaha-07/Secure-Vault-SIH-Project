@@ -42,15 +42,15 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
     } catch {}
   }
 
-  const token = localStorage.getItem('securevault_token');
-  const activePersonaKey = localStorage.getItem('securevault_active_persona') || 'admin';
+  const token = sessionStorage.getItem('securevault_token');
+  const activePersonaKey = sessionStorage.getItem('securevault_active_persona') || 'admin';
   const currentUser: User = MOCK_USERS[activePersonaKey] || MOCK_USERS['admin'];
 
   const cleanEndpoint = endpoint.split('?')[0];
 
   // 1. AUTH
   if (cleanEndpoint === '/auth/me') {
-    const isLoggedIn = localStorage.getItem('securevault_logged_in') === 'true' || !!token;
+    const isLoggedIn = sessionStorage.getItem('securevault_logged_in') === 'true' || !!token;
     if (!isLoggedIn) {
       return { user: null } as unknown as T;
     }
@@ -65,14 +65,14 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
     else if (email.includes('auditor')) matchedUser = MOCK_USERS['auditor'];
     else if (email.includes('admin')) matchedUser = MOCK_USERS['admin'];
 
-    localStorage.setItem('securevault_token', 'demo-token-' + Date.now());
-    localStorage.setItem('securevault_logged_in', 'true');
+    sessionStorage.setItem('securevault_token', 'demo-token-' + Date.now());
+    sessionStorage.setItem('securevault_logged_in', 'true');
     return { token: 'demo-token-' + Date.now(), user: matchedUser } as unknown as T;
   }
 
   if (cleanEndpoint === '/auth/logout') {
-    localStorage.removeItem('securevault_token');
-    localStorage.removeItem('securevault_logged_in');
+    sessionStorage.removeItem('securevault_token');
+    sessionStorage.removeItem('securevault_logged_in');
     return { success: true } as unknown as T;
   }
 
@@ -477,7 +477,7 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('securevault_token');
+  const token = sessionStorage.getItem('securevault_token');
   const headers = new Headers(options.headers || {});
 
   if (token && !headers.has('Authorization')) {
@@ -540,7 +540,7 @@ export const api = {
 
   download: async (endpoint: string, defaultFilename: string) => {
     try {
-      const token = localStorage.getItem('securevault_token');
+      const token = sessionStorage.getItem('securevault_token');
       const res = await fetch(`${BASE_URL}${endpoint}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: 'include',

@@ -70,8 +70,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activePersona, setActivePersona] = useState<PersonaType>('admin');
 
-  // Load current session on mount
+  // Clean up any legacy long-lived localStorage auth state on startup
   useEffect(() => {
+    try {
+      localStorage.removeItem('securevault_token');
+      localStorage.removeItem('securevault_logged_in');
+      localStorage.removeItem('securevault_active_persona');
+    } catch {}
     checkSession();
   }, []);
 
@@ -102,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       else if (email.includes('inv.b')) pKey = 'inv_b';
       else if (email.includes('auditor')) pKey = 'auditor';
 
-      localStorage.setItem('securevault_active_persona', pKey);
+      sessionStorage.setItem('securevault_active_persona', pKey);
 
       const res = await api.post<{ token: string; user: User }>('/auth/login', {
         email,
@@ -110,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (res && res.token) {
-        localStorage.setItem('securevault_token', res.token);
+        sessionStorage.setItem('securevault_token', res.token);
       }
       if (res && res.user) {
         setUser(res.user);
@@ -135,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchPersona = async (persona: PersonaType) => {
     const p = DEMO_PERSONAS[persona];
-    localStorage.setItem('securevault_active_persona', persona);
+    sessionStorage.setItem('securevault_active_persona', persona);
     await login(p.email, 'Password123!');
   };
 
@@ -143,8 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await api.post('/auth/logout');
     } catch {}
-    localStorage.removeItem('securevault_token');
-    localStorage.removeItem('securevault_logged_in');
+    sessionStorage.removeItem('securevault_token');
+    sessionStorage.removeItem('securevault_logged_in');
     setUser(null);
   };
 
