@@ -4,13 +4,11 @@ import {
   ShieldCheck,
   Bell,
   Lock,
-  UserCheck,
   ChevronDown,
   LogOut,
-  Sparkles,
   ExternalLink,
 } from 'lucide-react';
-import { useAuth, DEMO_PERSONAS, PersonaType } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 
 interface NavbarProps {
@@ -19,7 +17,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentView }) => {
-  const { user, activePersona, switchPersona, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [showPersonaMenu, setShowPersonaMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -49,11 +47,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentView }) => {
       const res = await api.get<any>('/system/notifications');
       setNotifications(res.notifications || []);
     } catch {}
-  };
-
-  const handleSelectPersona = async (personaKey: PersonaType) => {
-    setShowPersonaMenu(false);
-    await switchPersona(personaKey);
   };
 
   const getRiskColor = (level: string) => {
@@ -87,31 +80,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentView }) => {
         </div>
       </div>
 
-      {/* Live Demonstration Persona Switcher */}
-      <div className="hidden lg:flex items-center bg-slate-900/90 border border-slate-800 rounded-lg p-1 space-x-1 shadow-inner">
-        <span className="text-xs text-slate-400 px-2 font-mono flex items-center">
-          <Sparkles className="w-3.5 h-3.5 text-cyan-400 mr-1.5" /> Demo Persona:
+      {/* Security Status Indicator */}
+      <div className="hidden lg:flex items-center bg-slate-900/80 border border-slate-800 rounded-lg px-3 py-1.5 space-x-2 shadow-inner">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <span className="text-[11px] font-mono text-slate-300">
+          SECURE SESSION: <span className="text-cyan-400 font-bold">{user?.role}</span> CLEARANCE
         </span>
-        {(Object.keys(DEMO_PERSONAS) as PersonaType[]).map((pKey) => {
-          const p = DEMO_PERSONAS[pKey];
-          const isActive = activePersona === pKey;
-          return (
-            <button
-              key={pKey}
-              onClick={() => handleSelectPersona(pKey)}
-              className={`px-3 py-1 text-xs rounded font-medium transition-all duration-150 ${
-                isActive
-                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              {pKey === 'admin' && '👑 Admin'}
-              {pKey === 'inv_a' && '🔍 Inv A (Lead 104)'}
-              {pKey === 'inv_b' && '🚫 Inv B (Unassigned)'}
-              {pKey === 'auditor' && '🛡️ Auditor'}
-            </button>
-          );
-        })}
+        <span className="text-slate-600 font-mono">|</span>
+        <span className="text-[11px] font-mono text-slate-400">
+          {user?.departmentName || 'Investigation Division'}
+        </span>
       </div>
 
       {/* Right Controls: Risk Posture, Notifications, Profile */}
@@ -190,26 +168,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentView }) => {
                 <p className="text-[10px] text-cyan-400 mt-1">Badge: {user?.badgeNumber || 'N/A'}</p>
               </div>
 
-              <div className="py-2">
-                <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                  Switch Persona (Demo Mode)
-                </div>
-                {(Object.keys(DEMO_PERSONAS) as PersonaType[]).map((pKey) => {
-                  const p = DEMO_PERSONAS[pKey];
-                  return (
-                    <button
-                      key={pKey}
-                      onClick={() => handleSelectPersona(pKey)}
-                      className="w-full text-left px-3 py-1.5 hover:bg-slate-800 rounded flex items-center justify-between text-slate-300 hover:text-white"
-                    >
-                      <div>
-                        <div className="font-medium">{p.name}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{p.role}</div>
-                      </div>
-                      {activePersona === pKey && <UserCheck className="w-3.5 h-3.5 text-cyan-400" />}
-                    </button>
-                  );
-                })}
+              <div className="py-2 px-3 space-y-1 bg-slate-950/40 rounded-lg my-1 border border-slate-800/60 font-mono text-[11px]">
+                <div className="text-slate-400">Division: <span className="text-slate-200">{user?.departmentName || 'Investigation'}</span></div>
+                <div className="text-slate-400">Clearance: <span className="text-cyan-400 font-bold">{user?.role}</span></div>
+                <div className="text-slate-400">Session: <span className="text-emerald-400">Active (Encrypted)</span></div>
               </div>
 
               <div className="pt-2 border-t border-slate-800">
