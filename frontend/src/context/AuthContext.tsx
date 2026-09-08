@@ -78,12 +78,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkSession = async () => {
     try {
       const res = await api.get<{ user: User }>('/auth/me');
-      setUser(res.user);
-      // Infer persona
-      if (res.user.email.includes('inv.a')) setActivePersona('inv_a');
-      else if (res.user.email.includes('inv.b')) setActivePersona('inv_b');
-      else if (res.user.email.includes('auditor')) setActivePersona('auditor');
-      else setActivePersona('admin');
+      if (res && res.user) {
+        setUser(res.user);
+        if (res.user.email?.includes('inv.a')) setActivePersona('inv_a');
+        else if (res.user.email?.includes('inv.b')) setActivePersona('inv_b');
+        else if (res.user.email?.includes('auditor')) setActivePersona('auditor');
+        else setActivePersona('admin');
+      } else {
+        setUser(null);
+      }
     } catch {
       setUser(null);
     } finally {
@@ -94,17 +97,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, pass: string) => {
     setIsLoading(true);
     try {
+      let pKey: PersonaType = 'admin';
+      if (email.includes('inv.a')) pKey = 'inv_a';
+      else if (email.includes('inv.b')) pKey = 'inv_b';
+      else if (email.includes('auditor')) pKey = 'auditor';
+
+      localStorage.setItem('securevault_active_persona', pKey);
+
       const res = await api.post<{ token: string; user: User }>('/auth/login', {
         email,
         password: pass,
       });
-      localStorage.setItem('securevault_token', res.token);
-      setUser(res.user);
 
-      if (email.includes('inv.a')) setActivePersona('inv_a');
-      else if (email.includes('inv.b')) setActivePersona('inv_b');
-      else if (email.includes('auditor')) setActivePersona('auditor');
-      else setActivePersona('admin');
+      if (res && res.token) {
+        localStorage.setItem('securevault_token', res.token);
+      }
+      if (res && res.user) {
+        setUser(res.user);
+      } else {
+        const p = DEMO_PERSONAS[pKey];
+        setUser({
+          id: `user_${pKey}`,
+          email: p.email,
+          fullName: p.name,
+          role: p.role as any,
+          departmentId: 'dept_inv',
+          departmentName: p.department,
+          badgeNumber: p.badge,
+        });
+      }
+
+      setActivePersona(pKey);
     } finally {
       setIsLoading(false);
     }
@@ -112,6 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchPersona = async (persona: PersonaType) => {
     const p = DEMO_PERSONAS[persona];
+    localStorage.setItem('securevault_active_persona', persona);
     await login(p.email, 'Password123!');
   };
 
@@ -120,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await api.post('/auth/logout');
     } catch {}
     localStorage.removeItem('securevault_token');
+    localStorage.removeItem('securevault_logged_in');
     setUser(null);
   };
 
