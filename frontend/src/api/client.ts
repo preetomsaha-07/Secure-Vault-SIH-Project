@@ -335,10 +335,10 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       sha256_hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
       encryption_algo: 'aes-256-gcm',
       case_id: 'case_104',
-      case_number: 'CASE-2026-104',
-      case_title: 'Operation Nightshade: Vehicle Syndicate & Identity Forgery',
+      case_number: 'CASE-2024-ND-412',
+      case_title: 'State (NCT of Delhi) v. Inter-State VAHAN RTO Syndicate & Cloned HSRP Network',
       department_id: 'dept_inv',
-      department_name: 'Investigation Division',
+      department_name: 'Special Anti-Cartel & Digital Forensics Wing',
       owner_id: currentUser.id,
       owner_name: currentUser.fullName,
       sensitivity_level: 'CONFIDENTIAL',
@@ -348,8 +348,8 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       ai_confidence: 0.95,
       ai_summary: 'Encrypted with authenticated AES-256-GCM envelope. SHA-256 hash anchored into tamper-evident ledger.',
       aiEntities: [
-        { type: 'CASE_ID', value: 'CASE-2026-104' },
-        { type: 'LOCATION', value: 'Sector 62' },
+        { type: 'CASE_ID', value: 'CASE-2024-ND-412' },
+        { type: 'LOCATION', value: 'Sector 62 Underground Bay 4, Noida' },
       ],
       ocr_extracted_text: 'AUTHENTICATED EVIDENCE INTAKE RECORD\nEncrypted with AES-256-GCM.\nIntegrity SHA-256 anchored.\nForensic extraction completed.',
       is_tampered_demo: 0,
@@ -368,7 +368,7 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
 
     // Check Case 104 authorization for Inv B (Demonstrates 403 Forbidden in Hackathon Demo)
     if (currentUser.id === 'user_inv_b' && (docId.includes('104') || docId === 'doc_fir_104')) {
-      throw new ApiError(403, 'Access Denied: You are not assigned to CASE-2026-104 (Operation Nightshade)');
+      throw new ApiError(403, 'Access Denied: You are not assigned to CASE-2024-ND-412 (FIR 412/2024 - VAHAN Syndicate)');
     }
 
     const docIndex = docsState.findIndex((d) => d.id === docId);
