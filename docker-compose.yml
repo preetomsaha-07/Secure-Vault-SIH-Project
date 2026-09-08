@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Relational Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: securevault-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: securevault_admin
+      POSTGRES_PASSWORD: securevault_production_password_2026
+      POSTGRES_DB: securevault_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - securevault-internal
+
+  # 2. MinIO S3-Compatible Private Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: securevault-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: securevault_storage_admin
+      MINIO_ROOT_PASSWORD: securevault_storage_secret_key_2026
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - securevault-internal
+
+  # 3. SecureVault Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: securevault-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - minio
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      CLIENT_URL: http://localhost:3000
+      DATABASE_URL: postgresql://securevault_admin:securevault_production_password_2026@postgres:5432/securevault_db
+      USE_EMBEDDED_DB: "false"
+      STORAGE_PROVIDER: s3
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: securevault_storage_admin
+      AWS_SECRET_ACCESS_KEY: securevault_storage_secret_key_2026
+      AWS_S3_BUCKET: securevault-confidential-evidence-private
+      S3_ENDPOINT: http://minio:9000
+      MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      JWT_SECRET: "securevault-super-secret-jwt-key-minimum-32-chars-hackathon-2026"
+    ports:
+      - "5000:5000"
+    networks:
+      - securevault-internal
+
+  # 4. SecureVault Web Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: securevault-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - securevault-internal
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  securevault-internal:
+    driver: bridge
