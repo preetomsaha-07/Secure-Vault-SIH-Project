@@ -91,45 +91,43 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onBackToLanding
     issueNewOtp(officerInfo);
   };
 
-  // Standard Login submit -> Enforces OTP step!
-  const handleSubmitLogin = (e: React.FormEvent) => {
+  // Standard Login submit -> Strictly validates credentials with API before proceeding to OTP!
+  const handleSubmitLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email || !password) {
-      setError('Please provide your official email and password.');
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      setError('Please provide your official email address and security password.');
       return;
     }
 
-    const officerInfo = {
-      name: email.split('@')[0].toUpperCase(),
-      badge: `SV-OFF-${Math.floor(100 + Math.random() * 900)}`,
-      role: 'INVESTIGATOR',
-      email: email.toLowerCase().trim(),
-      password,
-      isRegistration: false,
-    };
+    setIsSubmitting(true);
+    try {
+      // 1. Strictly validate credentials with the authentication provider
+      const res = await api.post<{ valid: boolean; user: any }>('/auth/validate-credentials', {
+        email: cleanEmail,
+        password,
+      });
 
-    if (email.includes('admin')) {
-      officerInfo.name = DEMO_PERSONAS['admin'].name;
-      officerInfo.badge = DEMO_PERSONAS['admin'].badge;
-      officerInfo.role = DEMO_PERSONAS['admin'].role;
-    } else if (email.includes('inv.a')) {
-      officerInfo.name = DEMO_PERSONAS['inv_a'].name;
-      officerInfo.badge = DEMO_PERSONAS['inv_a'].badge;
-      officerInfo.role = DEMO_PERSONAS['inv_a'].role;
-    } else if (email.includes('inv.b')) {
-      officerInfo.name = DEMO_PERSONAS['inv_b'].name;
-      officerInfo.badge = DEMO_PERSONAS['inv_b'].badge;
-      officerInfo.role = DEMO_PERSONAS['inv_b'].role;
-    } else if (email.includes('auditor')) {
-      officerInfo.name = DEMO_PERSONAS['auditor'].name;
-      officerInfo.badge = DEMO_PERSONAS['auditor'].badge;
-      officerInfo.role = DEMO_PERSONAS['auditor'].role;
+      if (res && res.user) {
+        const officerInfo = {
+          name: res.user.fullName,
+          badge: res.user.badgeNumber || 'SV-OFF',
+          role: res.user.role,
+          email: res.user.email,
+          password,
+          isRegistration: false,
+        };
+
+        setOtpTargetOfficer(officerInfo);
+        issueNewOtp(officerInfo);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication Failed: Invalid email address or password.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setOtpTargetOfficer(officerInfo);
-    issueNewOtp(officerInfo);
   };
 
   // Register submit -> Enforces OTP step!
@@ -137,22 +135,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onBackToLanding
     e.preventDefault();
     setError(null);
 
-    if (!regFullName || !regEmail || !regPassword) {
+    const cleanEmail = regEmail.trim().toLowerCase();
+    if (!regFullName.trim() || !cleanEmail || !regPassword) {
       setError('Please fill in all required registration fields.');
       return;
     }
 
     const officerInfo = {
-      name: regFullName,
-      badge: regBadge,
+      name: regFullName.trim(),
+      badge: regBadge.trim(),
       role: regRole,
-      email: regEmail.toLowerCase().trim(),
+      email: cleanEmail,
       password: regPassword,
       isRegistration: true,
       registrationData: {
-        fullName: regFullName,
-        email: regEmail,
-        badgeNumber: regBadge,
+        fullName: regFullName.trim(),
+        email: cleanEmail,
+        badgeNumber: regBadge.trim(),
         role: regRole,
         password: regPassword,
       },
@@ -333,8 +332,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onBackToLanding
                   onSubmit={handleSubmitLogin}
                   className="p-6 rounded-2xl bg-[#0e1629] border border-slate-800 space-y-4 shadow-xl"
                 >
-                  <div className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wider">
-                    Standard Credentials Login
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wider flex items-center space-x-1.5">
+                      <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Standard Credentials Login</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">Strict 2FA Enforced</span>
+                  </div>
+
+                  {/* Registered Credentials Reference Hint */}
+                  <div className="p-3 bg-slate-900/90 border border-slate-700/60 rounded-xl space-y-1.5 text-[11px] font-mono">
+                    <div className="flex items-center space-x-1.5 text-cyan-400 font-bold">
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Authorized Officer Credentials:</span>
+                    </div>
+                    <div className="text-slate-300 grid grid-cols-1 sm:grid-cols-2 gap-1 text-[10px]">
+                      <div>• Admin: <span className="text-cyan-300">admin@securevault.local</span></div>
+                      <div>• Inv A: <span className="text-cyan-300">inv.a@securevault.local</span></div>
+                      <div>• Inv B: <span className="text-cyan-300">inv.b@securevault.local</span></div>
+                      <div>• Auditor: <span className="text-cyan-300">auditor@securevault.local</span></div>
+                    </div>
+                    <div className="text-[10px] text-slate-400 border-t border-slate-800/80 pt-1.5 flex justify-between items-center">
+                      <span>Security Password: <strong className="text-white">Password123!</strong></span>
+                      <span className="text-cyan-400/80 text-[9px] font-bold">Encrypted Verification</span>
+                    </div>
                   </div>
 
                   {error && (
@@ -370,10 +391,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onBackToLanding
 
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isSubmitting || isLoading}
                     className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-cyan-500/20 flex items-center justify-center space-x-2 transition"
                   >
-                    <span>Proceed to 2FA OTP</span>
+                    <span>{isSubmitting ? 'Validating Credentials...' : 'Verify Password & Proceed to 2FA'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </form>

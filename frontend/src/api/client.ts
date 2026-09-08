@@ -65,38 +65,79 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
     return { user: currentUser } as unknown as T;
   }
 
+  if (cleanEndpoint === '/auth/validate-credentials' && method === 'POST') {
+    const email = (parsedBody?.email || '').toLowerCase().trim();
+    const pass = parsedBody?.password || '';
+
+    const foundUser =
+      usersState.find((u) => u.email.toLowerCase() === email) ||
+      (email === 'admin@securevault.local'
+        ? MOCK_USERS['admin']
+        : email === 'inv.a@securevault.local'
+        ? MOCK_USERS['inv_a']
+        : email === 'inv.b@securevault.local'
+        ? MOCK_USERS['inv_b']
+        : email === 'auditor@securevault.local'
+        ? MOCK_USERS['auditor']
+        : null);
+
+    if (!foundUser) {
+      throw new ApiError(
+        401,
+        'Officer account not found. Please verify your official email or register as a new officer.'
+      );
+    }
+
+    const expectedPassword = credentialsState[email] || 'Password123!';
+    if (pass !== expectedPassword) {
+      auditLogsState.unshift({
+        id: 'audit_' + Date.now(),
+        user_id: foundUser.id,
+        user_name: foundUser.fullName,
+        action: 'AUTHENTICATION_FAILED_INVALID_PASSWORD',
+        details: `Access Denied: Incorrect password entered for officer ${foundUser.fullName} (${foundUser.email}).`,
+        ip_address: '10.14.8.99',
+        timestamp: new Date().toISOString(),
+        previous_hash: auditLogsState[0]?.current_hash || '0000000000000000000000000000000000000000000000000000000000000000',
+        current_hash: 'c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9',
+      });
+      throw new ApiError(401, 'Invalid security password. Access denied.');
+    }
+
+    return { valid: true, user: foundUser } as unknown as T;
+  }
+
   if (cleanEndpoint === '/auth/login' && method === 'POST') {
     const email = (parsedBody?.email || '').toLowerCase().trim();
-    
-    // Check in usersState first!
-    const foundUser = usersState.find((u) => u.email.toLowerCase() === email);
-    let matchedUser = foundUser;
+    const pass = parsedBody?.password || '';
 
-    if (!matchedUser) {
-      if (email.includes('inv.a')) matchedUser = MOCK_USERS['inv_a'];
-      else if (email.includes('inv.b')) matchedUser = MOCK_USERS['inv_b'];
-      else if (email.includes('auditor')) matchedUser = MOCK_USERS['auditor'];
-      else if (email.includes('admin')) matchedUser = MOCK_USERS['admin'];
-      else {
-        // Create an ad-hoc demo user for this email!
-        matchedUser = {
-          id: 'user_' + Date.now(),
-          email,
-          fullName: email.split('@')[0].toUpperCase(),
-          badgeNumber: `SV-OFF-${Math.floor(100 + Math.random() * 900)}`,
-          role: 'INVESTIGATOR',
-          departmentId: 'dept_inv',
-          departmentName: 'Investigation Division',
-          departmentCode: 'INV',
-          mfaEnabled: true,
-        };
-        usersState.push(matchedUser);
-      }
+    const foundUser =
+      usersState.find((u) => u.email.toLowerCase() === email) ||
+      (email === 'admin@securevault.local'
+        ? MOCK_USERS['admin']
+        : email === 'inv.a@securevault.local'
+        ? MOCK_USERS['inv_a']
+        : email === 'inv.b@securevault.local'
+        ? MOCK_USERS['inv_b']
+        : email === 'auditor@securevault.local'
+        ? MOCK_USERS['auditor']
+        : null);
+
+    if (!foundUser) {
+      throw new ApiError(
+        401,
+        'Officer account not found. Please verify your official email or register as a new officer.'
+      );
+    }
+
+    const expectedPassword = credentialsState[email] || 'Password123!';
+    if (pass !== expectedPassword) {
+      throw new ApiError(401, 'Invalid security password. Access denied.');
     }
 
     sessionStorage.setItem('securevault_token', 'demo-token-' + Date.now());
     sessionStorage.setItem('securevault_logged_in', 'true');
-    return { token: 'demo-token-' + Date.now(), user: matchedUser } as unknown as T;
+    return { token: 'demo-token-' + Date.now(), user: foundUser } as unknown as T;
   }
 
   if (cleanEndpoint === '/auth/register' && method === 'POST') {
