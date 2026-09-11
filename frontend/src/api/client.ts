@@ -9,8 +9,21 @@ import {
   MOCK_AUDIT_LOGS,
   MOCK_SECURITY_ALERTS,
   MOCK_GRAPH_DATA,
+  MOCK_DOCUMENT_VERSIONS,
+  MOCK_POLICE_ASSETS,
 } from './mockData';
-import { User, DocumentRecord, EvidenceRecord, CustodyEvent, AuditRecord, SecurityAlert } from '../types';
+import {
+  User,
+  DocumentRecord,
+  EvidenceRecord,
+  CustodyEvent,
+  AuditRecord,
+  SecurityAlert,
+  DocumentVersion,
+  PoliceAsset,
+  AssetAssignmentEvent,
+  AssetMaintenanceEvent,
+} from '../types';
 
 const BASE_URL = ((import.meta as any).env?.VITE_API_URL || '') + '/api';
 
@@ -31,6 +44,8 @@ let evidenceState: EvidenceRecord[] = [...MOCK_EVIDENCE];
 let custodyEventsState: Record<string, CustodyEvent[]> = { ...MOCK_CUSTODY_EVENTS };
 let auditLogsState: AuditRecord[] = [...MOCK_AUDIT_LOGS];
 let alertsState: SecurityAlert[] = [...MOCK_SECURITY_ALERTS];
+let versionsState: Record<string, DocumentVersion[]> = { ...MOCK_DOCUMENT_VERSIONS };
+let assetsState: PoliceAsset[] = [...MOCK_POLICE_ASSETS];
 let isAuditTampered = false;
 
 let usersState: User[] = [...Object.values(MOCK_USERS)];
@@ -558,6 +573,93 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       return { signature: newSig } as unknown as T;
     }
 
+    if (subAction === 'versions') {
+      if (method === 'POST') {
+        const existingVers = versionsState[docId] || [
+          {
+            id: 'ver_' + docId + '_1',
+            document_id: docId,
+            version_number: 'v1.0',
+            sha256_hash: doc?.sha256_hash || '3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b',
+            created_by_id: doc?.owner_id || currentUser.id,
+            created_by_name: doc?.owner_name || currentUser.fullName,
+            created_at: doc?.created_at || new Date(Date.now() - 86400000).toISOString(),
+            change_summary: 'Genesis baseline filing registered into cryptographic vault',
+            previous_version_ref: null,
+            is_current: false,
+          },
+        ];
+
+        const updatedVers = existingVers.map((v) => ({ ...v, is_current: false }));
+        const nextVersionNum = `v1.${updatedVers.length}`;
+        const prevVerRef = updatedVers[updatedVers.length - 1]?.version_number || 'v1.0';
+        const newHash =
+          parsedBody?.sha256_hash ||
+          'd' +
+            Math.random().toString(16).substring(2, 10) +
+            '9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0'.substring(9);
+
+        const newVersion: DocumentVersion = {
+          id: 'ver_' + Date.now(),
+          document_id: docId,
+          version_number: nextVersionNum,
+          sha256_hash: newHash,
+          created_by_id: currentUser.id,
+          created_by_name: currentUser.fullName,
+          created_at: new Date().toISOString(),
+          change_summary:
+            parsedBody?.change_summary ||
+            'Incremental investigation amendment and supplementary witness statement addition',
+          previous_version_ref: prevVerRef,
+          is_current: true,
+        };
+
+        updatedVers.push(newVersion);
+        versionsState[docId] = updatedVers;
+
+        if (docIndex >= 0) {
+          docsState[docIndex].current_version = updatedVers.length;
+          docsState[docIndex].sha256_hash = newHash;
+        }
+
+        auditLogsState.unshift({
+          id: 'audit_' + Date.now(),
+          user_id: currentUser.id,
+          user_name: currentUser.fullName,
+          action: 'DOCUMENT_VERSION_CREATED',
+          details: `Officer ${currentUser.fullName} filed Document Revision ${nextVersionNum} for [${doc?.title || docId}]. SHA-256 anchor updated. Summary: ${newVersion.change_summary}`,
+          ip_address: '10.0.4.12',
+          timestamp: new Date().toISOString(),
+          previous_hash:
+            auditLogsState[0]?.current_hash ||
+            '0000000000000000000000000000000000000000000000000000000000000000',
+          current_hash: '5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f',
+        });
+
+        return { success: true, version: newVersion, versions: updatedVers } as unknown as T;
+      }
+
+      let vers = versionsState[docId];
+      if (!vers || vers.length === 0) {
+        vers = [
+          {
+            id: 'ver_' + docId + '_1',
+            document_id: docId,
+            version_number: 'v1.0',
+            sha256_hash: doc?.sha256_hash || '3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b',
+            created_by_id: doc?.owner_id || currentUser.id,
+            created_by_name: doc?.owner_name || currentUser.fullName,
+            created_at: doc?.created_at || new Date(Date.now() - 86400000).toISOString(),
+            change_summary: 'Genesis baseline filing registered into cryptographic vault',
+            previous_version_ref: null,
+            is_current: true,
+          },
+        ];
+        versionsState[docId] = vers;
+      }
+      return { versions: vers } as unknown as T;
+    }
+
     if (subAction === 'ai') {
       return { success: true } as unknown as T;
     }
@@ -598,14 +700,22 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
     const ev = evidenceState.find((e) => e.id === evId) || evidenceState[0];
 
     if (subAction === 'transfer' && method === 'POST') {
+      const actionName = parsedBody?.action || 'TRANSFERRED';
+      const purpose = parsedBody?.purpose || parsedBody?.reason || 'Investigative examination and court submission preparation';
+      const location = parsedBody?.location || 'Digital Forensics Division Lab Suite 4B';
+      const newCustodian = parsedBody?.newCustodian || 'Forensic Lab Analyst';
+
       const newEvent: CustodyEvent = {
         id: 'cust_' + Date.now(),
         evidence_id: evId,
         case_id: ev.case_id,
         previous_custodian: ev.custodian_name || 'Previous Custodian',
-        new_custodian: parsedBody?.newCustodian || 'Forensic Lab Analyst',
-        action: parsedBody?.action || 'TRANSFER_OF_CUSTODY',
-        reason: parsedBody?.reason || 'Court submission preparation',
+        new_custodian: newCustodian,
+        action: actionName,
+        reason: purpose,
+        purpose: purpose,
+        location: location,
+        verification_status: 'VERIFIED',
         timestamp: new Date().toISOString(),
         performed_by_id: currentUser.id,
         performed_by_name: currentUser.fullName,
@@ -616,11 +726,30 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
       if (!custodyEventsState[evId]) custodyEventsState[evId] = [];
       custodyEventsState[evId].push(newEvent);
 
-      // Update current custodian
+      // Update current custodian and location
       const evIdx = evidenceState.findIndex((e) => e.id === evId);
       if (evIdx >= 0) {
-        evidenceState[evIdx].custodian_name = parsedBody?.newCustodian || 'Transferee';
+        evidenceState[evIdx].custodian_name = newCustodian;
+        if (location) evidenceState[evIdx].storage_location = location;
+        if (actionName === 'ARCHIVED') evidenceState[evIdx].status = 'ARCHIVED';
+        else if (actionName === 'SUBMITTED') evidenceState[evIdx].status = 'COURT_SUBMITTED';
+        else evidenceState[evIdx].status = 'IN_CUSTODY';
       }
+
+      auditLogsState.unshift({
+        id: 'audit_' + Date.now(),
+        user_id: currentUser.id,
+        user_name: currentUser.fullName,
+        action: 'CUSTODY_LIFECYCLE_EVENT',
+        details: `Custody Event [${actionName}] logged for Evidence [${ev.evidence_number}]. Custody transferred to ${newCustodian}. Location: ${location}. Purpose: ${purpose}`,
+        ip_address: '10.0.4.12',
+        timestamp: new Date().toISOString(),
+        previous_hash:
+          auditLogsState[0]?.current_hash ||
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        current_hash: '4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e',
+      });
+
       return { success: true, event: newEvent } as unknown as T;
     }
 
@@ -777,6 +906,193 @@ function handleMockRequest<T>(endpoint: string, method: string, body?: any): T {
         issuedAt: doc.created_at,
       },
     } as unknown as T;
+  }
+
+  // 11. POLICE ASSETS LIFECYCLE
+  if (cleanEndpoint === '/assets') {
+    if (method === 'POST') {
+      const newAsset: PoliceAsset = {
+        id: 'asset_' + Date.now(),
+        asset_tag: parsedBody?.asset_tag || `POL-AST-${Math.floor(1000 + Math.random() * 9000)}`,
+        name: parsedBody?.name || 'Police Digital Forensics Device',
+        type: parsedBody?.type || 'DIGITAL_FORENSIC_EQUIPMENT',
+        serial_number: parsedBody?.serial_number || `SN-${Math.floor(100000 + Math.random() * 900000)}`,
+        status: 'AVAILABLE',
+        assigned_to_id: null,
+        assigned_to_name: null,
+        assigned_department: parsedBody?.assigned_department || 'Investigation Wing',
+        current_location: parsedBody?.current_location || 'Central Police Tech Armory Locker 4',
+        custody_officer_id: currentUser.id,
+        custody_officer_name: currentUser.fullName,
+        associated_case_id: parsedBody?.associated_case_id || null,
+        associated_case_number: parsedBody?.associated_case_number || null,
+        maintenance_schedule: parsedBody?.maintenance_schedule || 'Quarterly',
+        last_maintenance_date: new Date().toISOString(),
+        assignment_history: [
+          {
+            id: 'asg_' + Date.now(),
+            asset_id: 'asset_' + Date.now(),
+            action: 'REGISTERED',
+            from_officer: null,
+            to_officer: currentUser.fullName,
+            purpose: parsedBody?.description || 'Initial police inventory onboarding and technical calibration',
+            location: parsedBody?.current_location || 'Central Police Tech Armory Locker 4',
+            timestamp: new Date().toISOString(),
+            verified_by: currentUser.fullName,
+          },
+        ],
+        maintenance_history: [],
+        created_at: new Date().toISOString(),
+      };
+
+      assetsState.unshift(newAsset);
+
+      auditLogsState.unshift({
+        id: 'audit_' + Date.now(),
+        user_id: currentUser.id,
+        user_name: currentUser.fullName,
+        action: 'POLICE_ASSET_REGISTERED',
+        details: `Police asset registered: [${newAsset.asset_tag}] ${newAsset.name} (${newAsset.type}). Initial custodian: ${currentUser.fullName}.`,
+        ip_address: '10.0.4.12',
+        timestamp: new Date().toISOString(),
+        previous_hash:
+          auditLogsState[0]?.current_hash ||
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        current_hash: '3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d',
+      });
+
+      return { asset: newAsset, message: 'Asset successfully registered into police custody system.' } as unknown as T;
+    }
+
+    return { assets: assetsState } as unknown as T;
+  }
+
+  if (cleanEndpoint.startsWith('/assets/')) {
+    const parts = cleanEndpoint.split('/');
+    const assetId = parts[2];
+    const subAction = parts[3];
+
+    const assetIdx = assetsState.findIndex((a) => a.id === assetId);
+    const asset = assetIdx >= 0 ? assetsState[assetIdx] : assetsState[0];
+
+    if (subAction === 'assign' && method === 'POST') {
+      const targetOfficer = parsedBody?.to_officer || 'Officer';
+      const purpose = parsedBody?.purpose || 'Case investigation deployment';
+      const location = parsedBody?.location || asset.current_location;
+
+      const event: AssetAssignmentEvent = {
+        id: 'asg_' + Date.now(),
+        asset_id: assetId,
+        action: asset.assigned_to_name ? 'TRANSFERRED' : 'ASSIGNED',
+        from_officer: asset.assigned_to_name,
+        to_officer: targetOfficer,
+        purpose,
+        location,
+        timestamp: new Date().toISOString(),
+        verified_by: currentUser.fullName,
+      };
+
+      if (assetIdx >= 0) {
+        assetsState[assetIdx].status = 'ASSIGNED';
+        assetsState[assetIdx].assigned_to_name = targetOfficer;
+        assetsState[assetIdx].current_location = location;
+        assetsState[assetIdx].assignment_history.unshift(event);
+      }
+
+      return { success: true, asset: assetsState[assetIdx], event } as unknown as T;
+    }
+
+    if (subAction === 'maintenance' && method === 'POST') {
+      const maintEvent: AssetMaintenanceEvent = {
+        id: 'maint_' + Date.now(),
+        asset_id: assetId,
+        maintenance_type: parsedBody?.maintenance_type || 'CALIBRATION',
+        notes: parsedBody?.notes || 'Preventative maintenance and software integrity scan',
+        technician: parsedBody?.technician || currentUser.fullName,
+        performed_at: new Date().toISOString(),
+        next_due_date:
+          parsedBody?.next_due_date ||
+          new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+      };
+
+      if (assetIdx >= 0) {
+        assetsState[assetIdx].last_maintenance_date = maintEvent.performed_at;
+        assetsState[assetIdx].maintenance_history.unshift(maintEvent);
+        if (parsedBody?.set_status) {
+          assetsState[assetIdx].status = parsedBody.set_status;
+        }
+      }
+
+      return { success: true, asset: assetsState[assetIdx], event: maintEvent } as unknown as T;
+    }
+
+    if (subAction === 'associate-case' && method === 'POST') {
+      const caseId = parsedBody?.case_id || 'case_104';
+      const caseNumber = parsedBody?.case_number || 'CASE-2026-104';
+
+      if (assetIdx >= 0) {
+        assetsState[assetIdx].associated_case_id = caseId;
+        assetsState[assetIdx].associated_case_number = caseNumber;
+        assetsState[assetIdx].assignment_history.unshift({
+          id: 'asg_' + Date.now(),
+          asset_id: assetId,
+          action: 'USAGE',
+          from_officer: assetsState[assetIdx].assigned_to_name,
+          to_officer: assetsState[assetIdx].assigned_to_name,
+          purpose: `Deployed on investigation ${caseNumber} for evidence acquisition`,
+          location: assetsState[assetIdx].current_location,
+          timestamp: new Date().toISOString(),
+          verified_by: currentUser.fullName,
+        });
+      }
+
+      return { success: true, asset: assetsState[assetIdx] } as unknown as T;
+    }
+
+    if (subAction === 'return' && method === 'POST') {
+      const returnLocation = parsedBody?.location || 'Central Police Tech Armory Locker 4';
+      if (assetIdx >= 0) {
+        const prev = assetsState[assetIdx].assigned_to_name;
+        assetsState[assetIdx].status = 'AVAILABLE';
+        assetsState[assetIdx].assigned_to_id = null;
+        assetsState[assetIdx].assigned_to_name = null;
+        assetsState[assetIdx].current_location = returnLocation;
+        assetsState[assetIdx].assignment_history.unshift({
+          id: 'asg_' + Date.now(),
+          asset_id: assetId,
+          action: 'RETURNED',
+          from_officer: prev,
+          to_officer: 'Police Armory Depository',
+          purpose: parsedBody?.reason || 'Investigation concluded, returned to armory inventory',
+          location: returnLocation,
+          timestamp: new Date().toISOString(),
+          verified_by: currentUser.fullName,
+        });
+      }
+
+      return { success: true, asset: assetsState[assetIdx] } as unknown as T;
+    }
+
+    if (subAction === 'retire' && method === 'POST') {
+      if (assetIdx >= 0) {
+        assetsState[assetIdx].status = 'RETIRED';
+        assetsState[assetIdx].assignment_history.unshift({
+          id: 'asg_' + Date.now(),
+          asset_id: assetId,
+          action: 'RETIRED',
+          from_officer: assetsState[assetIdx].assigned_to_name,
+          to_officer: 'Decommissioned Storage',
+          purpose: parsedBody?.reason || 'Decommissioned following forensic lifecycle protocol',
+          location: 'Depot Archive Vault',
+          timestamp: new Date().toISOString(),
+          verified_by: currentUser.fullName,
+        });
+      }
+
+      return { success: true, asset: assetsState[assetIdx] } as unknown as T;
+    }
+
+    return { asset } as unknown as T;
   }
 
   return {} as unknown as T;

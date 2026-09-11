@@ -131,12 +131,30 @@ export interface CustodyEvent {
   new_custodian: string;
   action: string;
   reason: string;
+  purpose?: string;
+  location?: string;
   timestamp: string;
   performed_by_id: string;
   performed_by_name?: string;
   badge_number?: string;
   integrity_hash: string;
   signature_status: string;
+  verification_status?: 'VERIFIED' | 'PENDING' | 'FLAGGED';
+}
+
+export interface DocumentVersion {
+  id: string;
+  document_id: string;
+  version_number: number;
+  storage_path?: string;
+  sha256_hash: string;
+  file_size: number;
+  created_by: string;
+  created_by_name?: string;
+  badge_number?: string;
+  change_summary?: string;
+  created_at: string;
+  is_current?: boolean;
 }
 
 export interface AuditRecord {
@@ -166,6 +184,7 @@ export interface SecurityAlert {
   reasons: string[];
   risk_score: number;
   is_resolved: number;
+  recommended_action?: string;
   created_at: string;
 }
 
@@ -207,4 +226,71 @@ export interface GraphData {
     totalEdges: number;
     casesCount: number;
   };
+}
+
+export type AssetStatus =
+  | 'REGISTERED'
+  | 'ASSIGNED'
+  | 'IN_USE'
+  | 'TRANSFERRED'
+  | 'UNDER_MAINTENANCE'
+  | 'INVESTIGATION_BOUND'
+  | 'RETURNED'
+  | 'RETIRED';
+
+export type AssetType =
+  | 'FORENSIC_HARDWARE'
+  | 'MOBILE_EXTRACTION'
+  | 'BODY_CAMERA'
+  | 'SECURE_STORAGE_SAFE'
+  | 'TACTICAL_RADIO'
+  | 'CRYPTOGRAPHIC_TOKEN'
+  | 'SURVEILLANCE_DRONE'
+  | 'INVESTIGATION_KIT';
+
+export interface AssetAssignmentEvent {
+  id: string;
+  asset_id: string;
+  officer_id: string;
+  officer_name: string;
+  badge_number: string;
+  action: string;
+  timestamp: string;
+  case_id?: string;
+  case_number?: string;
+  notes: string;
+}
+
+export interface AssetMaintenanceEvent {
+  id: string;
+  asset_id: string;
+  maintenance_type: string;
+  performed_by: string;
+  date: string;
+  status: 'COMPLETED' | 'SCHEDULED' | 'IN_PROGRESS';
+  cost?: string;
+  notes: string;
+}
+
+export interface PoliceAsset {
+  id: string;
+  asset_number: string;
+  name: string;
+  asset_type: AssetType;
+  department_id: string;
+  department_name: string;
+  department_code?: string;
+  serial_number: string;
+  assigned_officer_id?: string;
+  assigned_officer_name?: string;
+  assigned_badge_number?: string;
+  status: AssetStatus;
+  current_location: string;
+  related_case_id?: string;
+  related_case_number?: string;
+  related_evidence_id?: string;
+  registered_at: string;
+  last_inspected_at?: string;
+  assignment_history: AssetAssignmentEvent[];
+  maintenance_history: AssetMaintenanceEvent[];
 }

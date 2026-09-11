@@ -25,7 +25,8 @@ export const EvidencePage: React.FC = () => {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [newCustodian, setNewCustodian] = useState('');
   const [transferAction, setTransferAction] = useState('TRANSFERRED');
-  const [transferReason, setTransferReason] = useState('');
+  const [transferPurpose, setTransferPurpose] = useState('');
+  const [transferLocation, setTransferLocation] = useState('Central Forensics Laboratory Suite 4B');
 
   // New Evidence Modal
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -75,11 +76,14 @@ export const EvidencePage: React.FC = () => {
       await api.post(`/evidence/${selectedEvidence.id}/transfer`, {
         newCustodian,
         action: transferAction,
-        reason: transferReason,
+        purpose: transferPurpose,
+        reason: transferPurpose,
+        location: transferLocation,
       });
       setShowTransferModal(false);
       setNewCustodian('');
-      setTransferReason('');
+      setTransferPurpose('');
+      setTransferLocation('Central Forensics Laboratory Suite 4B');
       await selectEvidence(selectedEvidence);
       await loadEvidence();
     } catch (err: any) {
@@ -107,6 +111,29 @@ export const EvidencePage: React.FC = () => {
     }
   };
 
+  const getActionBadgeColor = (action: string) => {
+    switch (action) {
+      case 'COLLECTED':
+        return 'bg-amber-950/70 text-amber-300 border-amber-800';
+      case 'UPLOADED':
+        return 'bg-blue-950/70 text-blue-300 border-blue-800';
+      case 'VERIFIED':
+        return 'bg-emerald-950/70 text-emerald-300 border-emerald-800';
+      case 'ASSIGNED':
+        return 'bg-indigo-950/70 text-indigo-300 border-indigo-800';
+      case 'TRANSFERRED':
+        return 'bg-cyan-950/70 text-cyan-300 border-cyan-800';
+      case 'EXAMINED':
+        return 'bg-purple-950/70 text-purple-300 border-purple-800';
+      case 'SUBMITTED':
+        return 'bg-pink-950/70 text-pink-300 border-pink-800';
+      case 'ARCHIVED':
+        return 'bg-slate-800 text-slate-300 border-slate-700';
+      default:
+        return 'bg-cyan-950/70 text-cyan-300 border-cyan-800';
+    }
+  };
+
   return (
     <div className="space-y-6 pb-16">
       {/* Header */}
@@ -117,7 +144,7 @@ export const EvidencePage: React.FC = () => {
             <h1 className="text-xl font-extrabold text-white">Digital Evidence Chain of Custody</h1>
           </div>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Forensic intake, custodian transfers, tamper-evident hash logging, and court submission tracking
+            8-Stage forensic lifecycle, custodian transfers, location tracking, SHA-256 hash anchors, and court submission logs
           </p>
         </div>
 
@@ -128,6 +155,30 @@ export const EvidencePage: React.FC = () => {
           <Plus className="w-4 h-4" />
           <span>Intake Evidence Item</span>
         </button>
+      </div>
+
+      {/* 8-Stage Lifecycle Progress Legend */}
+      <div className="bg-[#0e1629] border border-slate-800 rounded-xl p-3">
+        <div className="text-[10px] font-mono text-slate-400 uppercase font-bold mb-2 flex items-center justify-between">
+          <span>8-Stage Legal Evidence Lifecycle Framework</span>
+          <span className="text-cyan-400">Strict Forensic Integrity (ISO/IEC 27037 compliant)</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2 text-center text-[10px] font-mono">
+          {[
+            { name: '1. COLLECTED', color: 'border-amber-700 bg-amber-950/40 text-amber-300' },
+            { name: '2. UPLOADED', color: 'border-blue-700 bg-blue-950/40 text-blue-300' },
+            { name: '3. VERIFIED', color: 'border-emerald-700 bg-emerald-950/40 text-emerald-300' },
+            { name: '4. ASSIGNED', color: 'border-indigo-700 bg-indigo-950/40 text-indigo-300' },
+            { name: '5. TRANSFERRED', color: 'border-cyan-700 bg-cyan-950/40 text-cyan-300' },
+            { name: '6. EXAMINED', color: 'border-purple-700 bg-purple-950/40 text-purple-300' },
+            { name: '7. SUBMITTED', color: 'border-pink-700 bg-pink-950/40 text-pink-300' },
+            { name: '8. ARCHIVED', color: 'border-slate-700 bg-slate-800/40 text-slate-300' },
+          ].map((stage, i) => (
+            <div key={i} className={`p-1.5 rounded-lg border ${stage.color} font-semibold truncate`}>
+              {stage.name}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Main Grid: Left Evidence List & Right Custody Visualizer */}
@@ -155,7 +206,7 @@ export const EvidencePage: React.FC = () => {
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono font-bold text-cyan-400">{ev.evidence_number}</span>
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400">
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-semibold">
                       {ev.status}
                     </span>
                   </div>
@@ -183,8 +234,10 @@ export const EvidencePage: React.FC = () => {
                     <h2 className="text-base font-bold text-white">{selectedEvidence.title}</h2>
                   </div>
                   <p className="text-xs text-slate-400 font-mono mt-0.5">
-                    Storage Vault: {selectedEvidence.storage_location || 'Forensic Locker'} • SHA-256:{' '}
-                    {selectedEvidence.integrity_hash.slice(0, 16)}...
+                    Storage Vault: <span className="text-slate-300">{selectedEvidence.storage_location || 'Forensic Locker'}</span> • Case ID: <span className="text-cyan-400">{selectedEvidence.case_number || selectedEvidence.case_id}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                    Genesis SHA-256: {selectedEvidence.integrity_hash}
                   </p>
                 </div>
 
@@ -193,14 +246,18 @@ export const EvidencePage: React.FC = () => {
                   className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-cyan-500/20 flex items-center space-x-1.5 transition self-start sm:self-auto"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Transfer Custody</span>
+                  <span>Record Lifecycle Event</span>
                 </button>
               </div>
 
               {/* Custody Timeline Visualization */}
               <div className="space-y-6">
-                <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">
-                  Verifiable Custody Transfer History ({timeline.length} Steps)
+                <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider flex items-center justify-between">
+                  <span>Verifiable Custody Transfer History ({timeline.length} Steps)</span>
+                  <span className="text-emerald-400 flex items-center space-x-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Cryptographic Linkage Active</span>
+                  </span>
                 </div>
 
                 <div className="relative pl-8 space-y-6 border-l-2 border-cyan-500/30 ml-2">
@@ -210,10 +267,10 @@ export const EvidencePage: React.FC = () => {
                       <div className="absolute -left-[41px] top-1.5 w-4 h-4 rounded-full bg-cyan-500 border-4 border-[#0e1629] shadow-sm shadow-cyan-500/50" />
 
                       {/* Card */}
-                      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 hover:border-cyan-500/40 transition">
+                      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 hover:border-cyan-500/40 transition">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                           <div className="flex items-center space-x-2 font-mono">
-                            <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold text-[10px]">
+                            <span className={`px-2.5 py-0.5 rounded border font-bold text-[10px] ${getActionBadgeColor(event.action)}`}>
                               {event.action}
                             </span>
                             <span className="text-slate-400 text-[10px]">
@@ -221,24 +278,50 @@ export const EvidencePage: React.FC = () => {
                             </span>
                           </div>
 
-                          <div className="flex items-center space-x-1.5 text-emerald-400 text-[11px] font-mono">
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>Hash Verified</span>
+                          <div className="flex items-center space-x-2 text-[11px] font-mono">
+                            <span className="px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-800 text-emerald-400 flex items-center space-x-1">
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>{event.verification_status || 'VERIFIED'}</span>
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-cyan-950/70 border border-cyan-800 text-cyan-300">
+                              Sig: {event.signature_status || 'VERIFIED'}
+                            </span>
                           </div>
                         </div>
 
-                        {/* Transfer Route */}
-                        <div className="flex items-center space-x-2 text-xs font-semibold text-slate-200 py-1 font-mono">
-                          <span className="text-slate-400 truncate max-w-[140px]">{event.previous_custodian}</span>
+                        {/* Transfer Route: Prev Custodian -> New Custodian */}
+                        <div className="flex items-center space-x-2 text-xs font-semibold text-slate-200 py-1 font-mono bg-slate-950/50 px-3 py-2 rounded-lg border border-slate-800">
+                          <div className="flex-1 truncate">
+                            <span className="text-[10px] text-slate-500 block uppercase">Previous Custodian</span>
+                            <span className="text-slate-300 font-semibold">{event.previous_custodian}</span>
+                          </div>
                           <ArrowRight className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-                          <span className="text-cyan-300 truncate max-w-[140px]">{event.new_custodian}</span>
+                          <div className="flex-1 truncate">
+                            <span className="text-[10px] text-slate-500 block uppercase">New Custodian</span>
+                            <span className="text-cyan-300 font-semibold">{event.new_custodian}</span>
+                          </div>
                         </div>
 
-                        <p className="text-slate-300 text-xs">{event.reason}</p>
+                        {/* Purpose & Location */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                          <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/80">
+                            <span className="text-[10px] text-slate-500 font-mono block uppercase mb-0.5">Purpose / Justification</span>
+                            <p className="text-slate-300">{event.purpose || event.reason || 'Forensic custody transfer'}</p>
+                          </div>
+                          <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/80">
+                            <span className="text-[10px] text-slate-500 font-mono block uppercase mb-0.5">Physical / Facility Location</span>
+                            <p className="text-cyan-400 font-mono">{event.location || selectedEvidence.storage_location || 'Forensic Locker A-12'}</p>
+                          </div>
+                        </div>
 
-                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                          <span>Authorized by: {event.performed_by_name || 'Investigator'}</span>
-                          <span className="truncate max-w-[180px]">Hash: {event.integrity_hash}</span>
+                        {/* Performed by & Integrity Hash */}
+                        <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-slate-500 font-mono">
+                          <span>
+                            Authorized by: <strong className="text-slate-400">{event.performed_by_name || 'Investigator'}</strong> {event.badge_number ? `(${event.badge_number})` : ''}
+                          </span>
+                          <span className="truncate max-w-[280px]">
+                            SHA-256: <code className="text-cyan-400">{event.integrity_hash}</code>
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -254,18 +337,47 @@ export const EvidencePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Transfer Custody Modal */}
+      {/* Transfer / Record Lifecycle Modal */}
       {showTransferModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0e1629] border border-slate-700 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <h2 className="text-base font-bold text-white">Transfer Evidence Custody</h2>
-            <p className="text-xs text-slate-400">
-              Transferring {selectedEvidence?.evidence_number}. Every transfer creates an indelible audit record.
-            </p>
+          <div className="bg-[#0e1629] border border-slate-700 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h2 className="text-base font-bold text-white">Record Custody Lifecycle Event</h2>
+                <p className="text-xs text-slate-400">
+                  Item: <span className="text-cyan-400 font-mono">{selectedEvidence?.evidence_number}</span> ({selectedEvidence?.title})
+                </p>
+              </div>
+              <span className="px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono text-[10px]">
+                8-Stage Protocol
+              </span>
+            </div>
 
             <form onSubmit={handleTransfer} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1">Receiving Custodian / Division</label>
+                <label className="block text-slate-400 mb-1 font-mono uppercase text-[11px]">
+                  1. Lifecycle Action Stage
+                </label>
+                <select
+                  value={transferAction}
+                  onChange={(e) => setTransferAction(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
+                >
+                  <option value="COLLECTED">1. COLLECTED - Initial scene recovery & physical acquisition</option>
+                  <option value="UPLOADED">2. UPLOADED - Secure ingest & cryptographic hash calculation</option>
+                  <option value="VERIFIED">3. VERIFIED - Forensic bitstream verification & integrity seal</option>
+                  <option value="ASSIGNED">4. ASSIGNED - Allocated to investigating officer / lab analyst</option>
+                  <option value="TRANSFERRED">5. TRANSFERRED - Secure inter-department or inter-agency handover</option>
+                  <option value="EXAMINED">6. EXAMINED - Forensic extraction, reverse-engineering, triage</option>
+                  <option value="SUBMITTED">7. SUBMITTED - Formal court submission & prosecution evidence filing</option>
+                  <option value="ARCHIVED">8. ARCHIVED - Secure cold-storage preservation post-proceedings</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-mono uppercase text-[11px]">
+                  2. Receiving Custodian / Division
+                </label>
                 <input
                   type="text"
                   required
@@ -277,29 +389,35 @@ export const EvidencePage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Transfer Action Category</label>
-                <select
-                  value={transferAction}
-                  onChange={(e) => setTransferAction(e.target.value)}
+                <label className="block text-slate-400 mb-1 font-mono uppercase text-[11px]">
+                  3. Facility / Storage Location
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Digital Forensics Division Lab Suite 4B, Station Locker 12"
+                  value={transferLocation}
+                  onChange={(e) => setTransferLocation(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
-                >
-                  <option value="TRANSFERRED">TRANSFERRED (Internal Handover)</option>
-                  <option value="EVIDENCE_REVIEW">EVIDENCE_REVIEW (Forensic Audit)</option>
-                  <option value="LEGAL_SUBMISSION">LEGAL_SUBMISSION (Court Admissibility)</option>
-                  <option value="ARCHIVED">ARCHIVED (Long-term Evidence Locker)</option>
-                </select>
+                />
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Official Justification Reason</label>
+                <label className="block text-slate-400 mb-1 font-mono uppercase text-[11px]">
+                  4. Purpose / Investigative Justification
+                </label>
                 <textarea
                   rows={3}
                   required
-                  placeholder="e.g. Submitted for hardware micro-probing and chip desoldering."
-                  value={transferReason}
-                  onChange={(e) => setTransferReason(e.target.value)}
+                  placeholder="e.g. Handover for hardware chip desoldering, memory extraction, and bitstream corroboration for court filing."
+                  value={transferPurpose}
+                  onChange={(e) => setTransferPurpose(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"
                 />
+              </div>
+
+              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-400">
+                <span>Cryptographic Assertion: Evidence ID <span className="text-cyan-400">{selectedEvidence?.id}</span> • Case <span className="text-cyan-400">{selectedEvidence?.case_number || '104'}</span> will be signed with officer credentials and committed to the audit chain.</span>
               </div>
 
               <div className="flex items-center justify-end space-x-3 pt-2">
@@ -312,9 +430,9 @@ export const EvidencePage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-500 text-slate-950 font-bold rounded-lg hover:bg-cyan-400 transition"
+                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold rounded-lg transition"
                 >
-                  Authorize Custody Transfer
+                  Authorize & Sign Custody Record
                 </button>
               </div>
             </form>

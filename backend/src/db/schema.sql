@@ -297,6 +297,48 @@ CREATE TABLE IF NOT EXISTS retention_policies (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- 24. POLICE_ASSETS
+CREATE TABLE IF NOT EXISTS police_assets (
+    id TEXT PRIMARY KEY,
+    asset_tag TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    serial_number TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'AVAILABLE',
+    assigned_to_id TEXT REFERENCES users(id),
+    assigned_department TEXT NOT NULL,
+    current_location TEXT NOT NULL,
+    custody_officer_id TEXT NOT NULL REFERENCES users(id),
+    associated_case_id TEXT REFERENCES cases(id),
+    maintenance_schedule TEXT NOT NULL,
+    last_maintenance_date TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 25. ASSET_ASSIGNMENT_HISTORY
+CREATE TABLE IF NOT EXISTS asset_assignment_history (
+    id TEXT PRIMARY KEY,
+    asset_id TEXT NOT NULL REFERENCES police_assets(id) ON DELETE CASCADE,
+    action TEXT NOT NULL,
+    from_officer TEXT,
+    to_officer TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    location TEXT NOT NULL,
+    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    verified_by TEXT NOT NULL
+);
+
+-- 26. ASSET_MAINTENANCE_HISTORY
+CREATE TABLE IF NOT EXISTS asset_maintenance_history (
+    id TEXT PRIMARY KEY,
+    asset_id TEXT NOT NULL REFERENCES police_assets(id) ON DELETE CASCADE,
+    maintenance_type TEXT NOT NULL,
+    notes TEXT NOT NULL,
+    technician TEXT NOT NULL,
+    performed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    next_due_date TEXT NOT NULL
+);
+
 -- INDEXES FOR SPEED & AUTHORIZATION
 CREATE INDEX IF NOT EXISTS idx_docs_case ON documents(case_id);
 CREATE INDEX IF NOT EXISTS idx_docs_dept ON documents(department_id);
@@ -306,3 +348,5 @@ CREATE INDEX IF NOT EXISTS idx_case_members ON case_members(case_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
 CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_logs(resource_id);
 CREATE INDEX IF NOT EXISTS idx_evidence_case ON evidence(case_id);
+CREATE INDEX IF NOT EXISTS idx_assets_tag ON police_assets(asset_tag);
+CREATE INDEX IF NOT EXISTS idx_assets_status ON police_assets(status);

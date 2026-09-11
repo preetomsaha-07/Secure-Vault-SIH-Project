@@ -729,4 +729,94 @@ router.put('/:id/ai', authenticate, authorizeDocumentAccess('WRITE'), async (req
   }
 });
 
+// GET /api/docs/:id/versions - Retrieve version history
+router.get('/:id/versions', authenticate, authorizeDocumentAccess('READ'), async (req: Request, res: Response) => {
+  try {
+    const docId = req.params.id;
+    const db = await getDb();
+
+    const versions = await db.query(
+      `SELECT v.*, u.full_name as created_by_name, u.badge_number
+       FROM document_versions v
+       LEFT JOIN users u ON v.created_by = u.id
+       WHERE v.document_id = $1
+       ORDER BY v.version_number ASC`,
+      [docId]
+    );
+
+    const doc = await db.get<any>(`SELECT current_version, sha256_hash, owner_id, created_at FROM documents WHERE id = $1`, [docId]);
+
+    const formatted = versions.map((v: any) => ({
+      id: v.id,
+      document_id: v.document_id,
+      version_number: `v1.${v.version_number - 1}`,
+      sha256_hash: v.sha256_hash,
+      created_by_id: v.created_by,
+      created_by_name: v.created_by_name || 'Authorized Officer',
+      created_at: v.created_at,
+      change_summary: v.change_summary || 'Incremental case amendment',
+      previous_version_ref: v.version_number > 1 ? `v1.${v.version_number - 2}` : null,
+      is_current: v.version_number === doc?.current_version,
+    }));
+
+    return res.status(200).json({ versions: formatted });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to fetch document versions.' });
+  }
+});
+
+// POST /api/docs/:id/versions - Create new version revision
+router.post('/:id/versions', authenticate, authorizeDocumentAccess('WRITE'), async (req: Request, res: Response) => {
+  try {
+    const docId = req.params.id;
+    const user = req.user!;
+    const { change_summary } = req.body;
+    const db = await getDb();
+
+    const doc = await db.get<any>(`SELECT * FROM documents WHERE id = $1`, [docId]);
+    if (!doc) return res.status(404).json({ error: 'Document not found.' });
+
+    const newVersionNum = (doc.current_version || 1) + 1;
+    const newHash = CryptoHasher.sha256(`${doc.sha256_hash}:${newVersionNum}:${Date.now()}`);
+    const verId = uuidv4();
+
+    await db.run(
+      `INSERT INTO document_versions (id, document_id, version_number, storage_path, sha256_hash, file_size, created_by, change_summary, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, datetime('now'))`,
+      [verId, docId, newVersionNum, doc.storage_path, newHash, doc.file_size, user.id, change_summary || 'Revision addendum filed']
+    );
+
+    await db.run(
+      `UPDATE documents SET current_version = $1, sha256_hash = $2, updated_at = datetime('now') WHERE id = $3`,
+      [newVersionNum, newHash, docId]
+    );
+
+    await AuditService.logEvent(db, {
+      userId: user.id,
+      userName: user.fullName,
+      action: 'DOCUMENT_VERSION_CREATED',
+      resourceId: docId,
+      resourceType: 'DOCUMENT',
+      caseId: doc.case_id,
+      details: { version: `v1.${newVersionNum - 1}`, change_summary, newHash },
+      ipAddress: req.ip,
+    });
+
+    return res.status(201).json({
+      message: 'New document revision successfully committed.',
+      version: {
+        id: verId,
+        document_id: docId,
+        version_number: `v1.${newVersionNum - 1}`,
+        sha256_hash: newHash,
+        created_by_name: user.fullName,
+        change_summary,
+        is_current: true,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to create revision.' });
+  }
+});
+
 export default router;

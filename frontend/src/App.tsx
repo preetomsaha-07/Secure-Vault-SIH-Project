@@ -20,6 +20,7 @@ import { SecurityPage } from './pages/SecurityPage';
 import { SharingPage } from './pages/SharingPage';
 import { QrVerificationPage } from './pages/QrVerificationPage';
 import { UsersPage } from './pages/UsersPage';
+import { AssetsPage } from './pages/AssetsPage';
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -105,6 +106,8 @@ function AppContent() {
         return <SearchPage onNavigate={handleNavigate} />;
       case 'security':
         return <SecurityPage />;
+      case 'assets':
+        return <AssetsPage />;
       case 'sharing':
       case 'access-requests':
         return <SharingPage />;

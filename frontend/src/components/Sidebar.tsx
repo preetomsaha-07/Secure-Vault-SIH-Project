@@ -16,6 +16,7 @@ import {
   QrCode,
   Users,
   Shield,
+  Cpu,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -51,7 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onOpe
     {
       title: 'OPERATIONS & ACCESS',
       items: [
-        { id: 'security', label: 'Security Incident Center', icon: AlertOctagon },
+        { id: 'security', label: 'Security Command Center', icon: AlertOctagon },
+        { id: 'assets', label: 'Police Asset Lifecycle', icon: Cpu, highlight: true },
         { id: 'sharing', label: 'Secure Sharing & Links', icon: Share2 },
         { id: 'access-requests', label: 'JIT Access Requests', icon: Clock },
         { id: 'qr-verify', label: 'Public QR Verification', icon: QrCode },
